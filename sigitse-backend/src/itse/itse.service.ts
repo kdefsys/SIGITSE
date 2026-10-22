@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateItseRequestDto } from './dto/create-itse-request.dto';
+import { ReviewItseDto } from './dto/review-itse.dto';
 
 @Injectable()
 export class ItseService {
@@ -41,15 +42,24 @@ export class ItseService {
   }
 
   async attachDocument(itseRequestId: number, file: Express.Multer.File) {
-  return this.prisma.document.create({
-    data: {
-      filename: file.filename,
-      originalName: file.originalname,
-      mimeType: file.mimetype,
-      size: file.size,
-      path: file.path,
-      itseRequestId: itseRequestId,
-    },
-  });
-}
+    return this.prisma.document.create({
+      data: {
+        filename: file.filename,
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+        size: file.size,
+        path: file.path,
+        itseRequestId: itseRequestId,
+      },
+    });
+  }
+
+  async reviewRequest(id: number, reviewDto: ReviewItseDto) {
+    return this.prisma.itseRequest.update({
+      where: { id },
+      data: {
+        status: reviewDto.action,
+      },
+    });
+  }
 }

@@ -1,22 +1,27 @@
 import {
   Controller, Get, Post, Body, UseGuards, Req,
   UseInterceptors, UploadedFile, ParseFilePipe,
-  MaxFileSizeValidator, FileTypeValidator, Param, ParseIntPipe
+  MaxFileSizeValidator, FileTypeValidator, Param, ParseIntPipe,
+  Patch
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { ItseService } from './itse.service';
 import { CreateItseRequestDto } from './dto/create-itse-request.dto';
+import { ReviewItseDto } from './dto/review-itse.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import type { Request } from 'express';
+
 
 @Controller('itse')
 export class ItseController {
   constructor(private readonly itseService: ItseService) {}
 
   @UseGuards(JwtAuthGuard)
-  @Post()
+  @Post(':id/upload')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
@@ -45,6 +50,8 @@ export class ItseController {
     return this.itseService.attachDocument(itseRequestId, file);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Post()
   create(@Body() createItseRequestDto: CreateItseRequestDto, @Req() req: Request) {
     // Opcional: puedes extraer el ID del usuario autenticado desde req.user
     console.log('Usuario autenticado:', req.user);
@@ -55,5 +62,15 @@ export class ItseController {
   @Get()
   findAll() {
     return this.itseService.findAll();
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'INSPECTOR')
+  @Patch(':id/review')
+  reviewRequest(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() reviewDto: ReviewItseDto,
+  ) {
+    return this.itseService.reviewRequest(id, reviewDto);
   }
 }

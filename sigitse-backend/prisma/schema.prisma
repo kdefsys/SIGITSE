@@ -7,6 +7,14 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum RequestStatus {
+  PENDIENTE
+  EN_REVISION
+  OBSERVADO
+  APROBADO
+  RECHAZADO
+}
+
 enum Role {
   ADMINISTRADO
   INSPECTOR
@@ -29,7 +37,7 @@ model ItseRequest {
   id          Int      @id @default(autoincrement())
   title       String
   description String
-  status      String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  status    RequestStatus @default(PENDIENTE)
   userId      Int
   user        User     @relation(fields: [userId], references: [id])
   createdAt   DateTime @default(now())
