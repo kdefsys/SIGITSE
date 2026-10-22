@@ -4,6 +4,7 @@ import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { ItseModule } from './itse/itse.module';
 import { AuthModule } from './auth/auth.module';
+import { AdminController } from './users/admin.controller';
 
 @Module({
   imports: [PrismaModule, ItseModule, AuthModule],

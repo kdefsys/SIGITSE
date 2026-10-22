@@ -78,8 +78,10 @@ export class AuthService {
   }
 
   // Método auxiliar para firmar Tokens JWT
-  private generateToken(userId: number, email: string): string {
-    const payload = { sub: userId, email };
-    return this.jwtService.sign(payload);
+  private async generateToken(userId: number, email: string): Promise<{ access_token: string }> {
+    const payload = { sub: userId, email, role: 'ADMINISTRADO' }; // Ajusta el rol según sea necesario
+    return {
+    access_token: await this.jwtService.signAsync(payload),
+    };
   }
 }
