@@ -28,4 +28,17 @@ model ItseRequest {
   user        User     @relation(fields: [userId], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  documents Document[]
+}
+
+model Document {
+  id            Int         @id @default(autoincrement())
+  filename      String
+  originalName  String
+  mimeType      String
+  size          Int
+  path          String
+  itseRequestId Int
+  itseRequest   ItseRequest @relation(fields: [itseRequestId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
 }

@@ -39,4 +39,17 @@ export class ItseService {
       include: { user: true },
     });
   }
+
+  async attachDocument(itseRequestId: number, file: Express.Multer.File) {
+  return this.prisma.document.create({
+    data: {
+      filename: file.filename,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      size: file.size,
+      path: file.path,
+      itseRequestId: itseRequestId,
+    },
+  });
+}
 }
