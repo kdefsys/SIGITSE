@@ -13,6 +13,7 @@ import { ReviewItseDto } from './dto/review-itse.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CreatePaymentDto } from './dto/create-payment.dto';
 import type { Request } from 'express';
 
 
@@ -72,5 +73,15 @@ export class ItseController {
     @Body() reviewDto: ReviewItseDto,
   ) {
     return this.itseService.reviewRequest(id, reviewDto);
+  }
+
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/payment')
+  registerPayment(
+    @Param('id', ParseIntPipe) itseRequestId: number,
+    @Body() dto: CreatePaymentDto,
+  ) {
+    return this.itseService.registerPayment(itseRequestId, dto);
   }
 }

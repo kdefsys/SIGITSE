@@ -43,6 +43,7 @@ model ItseRequest {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   documents Document[]
+  payment   Payment?
 }
 
 model Document {
@@ -53,6 +54,16 @@ model Document {
   size          Int
   path          String
   itseRequestId Int
+  itseRequest   ItseRequest @relation(fields: [itseRequestId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+}
+
+model Payment {
+  id            Int         @id @default(autoincrement())
+  receiptNumber String      @unique
+  amount        Float
+  paymentDate   DateTime    @default(now())
+  itseRequestId Int         @unique
   itseRequest   ItseRequest @relation(fields: [itseRequestId], references: [id], onDelete: Cascade)
   createdAt     DateTime    @default(now())
 }

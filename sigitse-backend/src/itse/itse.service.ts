@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateItseRequestDto } from './dto/create-itse-request.dto';
 import { ReviewItseDto } from './dto/review-itse.dto';
+import { CreatePaymentDto } from './dto/create-payment.dto';
 
 @Injectable()
 export class ItseService {
@@ -59,6 +60,16 @@ export class ItseService {
       where: { id },
       data: {
         status: reviewDto.action,
+      },
+    });
+  }
+
+  async registerPayment(itseRequestId: number, dto: CreatePaymentDto) {
+    return this.prisma.payment.create({
+      data: {
+        receiptNumber: dto.receiptNumber,
+        amount: dto.amount,
+        itseRequestId: itseRequestId,
       },
     });
   }
