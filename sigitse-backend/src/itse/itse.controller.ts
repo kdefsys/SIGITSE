@@ -9,6 +9,7 @@ import { extname } from 'path';
 import { ItseService } from './itse.service';
 import { CreateItseRequestDto } from './dto/create-itse-request.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import type { Request } from 'express';
 
 @Controller('itse')
 export class ItseController {
@@ -44,7 +45,7 @@ export class ItseController {
     return this.itseService.attachDocument(itseRequestId, file);
   }
 
-  create(@Body() createItseRequestDto: CreateItseRequestDto, @Req() req) {
+  create(@Body() createItseRequestDto: CreateItseRequestDto, @Req() req: Request) {
     // Opcional: puedes extraer el ID del usuario autenticado desde req.user
     console.log('Usuario autenticado:', req.user);
     return this.itseService.create(createItseRequestDto);
