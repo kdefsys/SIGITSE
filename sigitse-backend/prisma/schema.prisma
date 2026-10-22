@@ -6,3 +6,26 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String
+  password  String
+  role      String   @default("USER") // ADMIN, INSPECTOR, USER
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  itseRequests ItseRequest[]
+}
+
+model ItseRequest {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  status      String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
