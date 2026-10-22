@@ -3,6 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateItseRequestDto } from './dto/create-itse-request.dto';
 import { ReviewItseDto } from './dto/review-itse.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
+import { BadRequestException } from '@nestjs/common';
+import { AssignInspectorDto } from './dto/assign-inspector.dto';
 
 @Injectable()
 export class ItseService {
@@ -70,6 +72,25 @@ export class ItseService {
         receiptNumber: dto.receiptNumber,
         amount: dto.amount,
         itseRequestId: itseRequestId,
+      },
+    });
+  }
+
+  async assignInspector(itseRequestId: number, dto: AssignInspectorDto) {
+    // Validar que el usuario exista y sea INSPECTOR
+    const inspector = await this.prisma.user.findUnique({
+      where: { id: dto.inspectorId },
+    });
+
+    if (!inspector || inspector.role !== 'INSPECTOR') {
+      throw new BadRequestException('El usuario seleccionado no tiene el rol de INSPECTOR.');
+    }
+
+    return this.prisma.itseRequest.update({
+      where: { id: itseRequestId },
+      data: {
+        inspectorId: dto.inspectorId,
+        status: 'EN_REVISION',
       },
     });
   }

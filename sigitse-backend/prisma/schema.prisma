@@ -31,6 +31,7 @@ model User {
   updatedAt DateTime @updatedAt
 
   itseRequests ItseRequest[]
+  inspectorRequests ItseRequest[] @relation("InspectorRequests")
 }
 
 model ItseRequest {
@@ -44,6 +45,8 @@ model ItseRequest {
   updatedAt   DateTime @updatedAt
   documents Document[]
   payment   Payment?
+  inspectorId Int?
+  inspector   User?    @relation("InspectorRequests", fields: [inspectorId], references: [id])
 }
 
 model Document {

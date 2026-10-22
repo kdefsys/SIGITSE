@@ -14,6 +14,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CreatePaymentDto } from './dto/create-payment.dto';
+import { AssignInspectorDto } from './dto/assign-inspector.dto';
 import type { Request } from 'express';
 
 
@@ -83,5 +84,15 @@ export class ItseController {
     @Body() dto: CreatePaymentDto,
   ) {
     return this.itseService.registerPayment(itseRequestId, dto);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @Patch(':id/assign-inspector')
+  assignInspector(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: AssignInspectorDto,
+  ) {
+    return this.itseService.assignInspector(id, dto);
   }
 }
