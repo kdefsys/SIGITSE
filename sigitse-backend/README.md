@@ -31,6 +31,18 @@
 $ npm install
 ```
 
+## Environment configuration
+
+The backend loads environment variables from `.env`. Set `DATABASE_URL` and a
+private `JWT_SECRET` of at least 32 characters before starting the application.
+Generate a secret locally with:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+Do not commit `.env` or share the generated secret.
+
 ## Compile and run the project
 
 ```bash

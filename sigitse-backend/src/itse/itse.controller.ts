@@ -1,9 +1,20 @@
 import {
-  Controller, Get, Post, Body, UseGuards, Req,
-  UseInterceptors, UploadedFile, ParseFilePipe,
-  MaxFileSizeValidator, FileTypeValidator, Param, ParseIntPipe,
-  Patch
+  Body,
+  Controller,
+  FileTypeValidator,
+  Get,
+  MaxFileSizeValidator,
+  ParseFilePipe,
+  ParseIntPipe,
+  Param,
+  Patch,
+  Post,
+  Req,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { Role } from '@prisma/client';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
@@ -16,13 +27,17 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { AssignInspectorDto } from './dto/assign-inspector.dto';
 import type { Request } from 'express';
+import { ItseRequestAccessGuard } from './guards/itse-request-access.guard';
 
+type AuthenticatedRequest = Request & {
+  user: { userId: number; email: string; role: Role };
+};
 
 @Controller('itse')
 export class ItseController {
   constructor(private readonly itseService: ItseService) {}
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ItseRequestAccessGuard)
   @Post(':id/upload')
   @UseInterceptors(
     FileInterceptor('file', {
@@ -36,7 +51,6 @@ export class ItseController {
       }),
     }),
   )
-
   async uploadDocument(
     @Param('id', ParseIntPipe) itseRequestId: number,
     @UploadedFile(
@@ -48,22 +62,30 @@ export class ItseController {
       }),
     )
     file: Express.Multer.File,
+    @Req() req: AuthenticatedRequest,
   ) {
-    return this.itseService.attachDocument(itseRequestId, file);
+    return this.itseService.attachDocument(
+      itseRequestId,
+      file,
+      req.user.userId,
+      req.user.role,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  create(@Body() createItseRequestDto: CreateItseRequestDto, @Req() req: Request) {
-    // Opcional: puedes extraer el ID del usuario autenticado desde req.user
-    console.log('Usuario autenticado:', req.user);
-    return this.itseService.create(createItseRequestDto);
+  create(
+    @Body() createItseRequestDto: CreateItseRequestDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.itseService.create(createItseRequestDto, req.user.userId);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'INSPECTOR', 'ADMINISTRADO')
   @Get()
-  findAll() {
-    return this.itseService.findAll();
+  findAll(@Req() req: AuthenticatedRequest) {
+    return this.itseService.findAll(req.user.userId, req.user.role);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -72,18 +94,29 @@ export class ItseController {
   reviewRequest(
     @Param('id', ParseIntPipe) id: number,
     @Body() reviewDto: ReviewItseDto,
+    @Req() req: AuthenticatedRequest,
   ) {
-    return this.itseService.reviewRequest(id, reviewDto);
+    return this.itseService.reviewRequest(
+      id,
+      reviewDto,
+      req.user.userId,
+      req.user.role,
+    );
   }
-
 
   @UseGuards(JwtAuthGuard)
   @Post(':id/payment')
   registerPayment(
     @Param('id', ParseIntPipe) itseRequestId: number,
     @Body() dto: CreatePaymentDto,
+    @Req() req: AuthenticatedRequest,
   ) {
-    return this.itseService.registerPayment(itseRequestId, dto);
+    return this.itseService.registerPayment(
+      itseRequestId,
+      dto,
+      req.user.userId,
+      req.user.role,
+    );
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -92,7 +125,8 @@ export class ItseController {
   assignInspector(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: AssignInspectorDto,
+    @Req() req: AuthenticatedRequest,
   ) {
-    return this.itseService.assignInspector(id, dto);
+    return this.itseService.assignInspector(id, dto, req.user.role);
   }
 }

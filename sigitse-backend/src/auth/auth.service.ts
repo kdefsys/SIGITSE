@@ -1,5 +1,6 @@
 import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
@@ -38,7 +39,7 @@ export class AuthService {
     });
 
     // 4. Generaramos el Token JWT de sesión
-    const token = this.generateToken(user.id, user.email, user.role);
+    const token = await this.generateToken(user.id, user.email, user.role);
 
     return {
       message: 'Usuario registrado exitosamente',
@@ -68,7 +69,7 @@ export class AuthService {
     }
 
     // 3. Generamos Token JWT
-    const token = this.generateToken(user.id, user.email, user.role);
+    const token = await this.generateToken(user.id, user.email, user.role);
 
     return {
       message: 'Inicio de sesión exitoso',
@@ -81,7 +82,7 @@ export class AuthService {
   private async generateToken(
     userId: number,
     email: string,
-    role: string,
+    role: Role,
   ): Promise<{ access_token: string }> {
     const payload = { sub: userId, email, role };
     return {
