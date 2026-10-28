@@ -38,7 +38,7 @@ export class AuthService {
     });
 
     // 4. Generaramos el Token JWT de sesión
-    const token = this.generateToken(user.id, user.email);
+    const token = this.generateToken(user.id, user.email, user.role);
 
     return {
       message: 'Usuario registrado exitosamente',
@@ -68,7 +68,7 @@ export class AuthService {
     }
 
     // 3. Generamos Token JWT
-    const token = this.generateToken(user.id, user.email);
+    const token = this.generateToken(user.id, user.email, user.role);
 
     return {
       message: 'Inicio de sesión exitoso',
@@ -78,10 +78,14 @@ export class AuthService {
   }
 
   // Método auxiliar para firmar Tokens JWT
-  private async generateToken(userId: number, email: string): Promise<{ access_token: string }> {
-    const payload = { sub: userId, email, role: 'ADMINISTRADO' }; // Ajusta el rol según sea necesario
+  private async generateToken(
+    userId: number,
+    email: string,
+    role: string,
+  ): Promise<{ access_token: string }> {
+    const payload = { sub: userId, email, role };
     return {
-    access_token: await this.jwtService.signAsync(payload),
+      access_token: await this.jwtService.signAsync(payload),
     };
   }
 }
