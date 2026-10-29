@@ -19,7 +19,7 @@ enum Role {
   ADMINISTRADO
   INSPECTOR
   ADMIN
-}
+} 
 
 model User {
   id        Int      @id @default(autoincrement())
