@@ -19,13 +19,17 @@ export type RequestStatus =
 
 export interface User {
   id: number;
+  name: string;
   email: string;
   role: Role;
 }
 
 export interface AuthResponse {
-  access_token: string;
-  user?: User;
+  message: string;
+  token: {
+    access_token: string;
+  };
+  user: User;
 }
 
 export interface Payment {

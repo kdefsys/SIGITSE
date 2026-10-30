@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
-import { Role } from '../types';
+import type { AuthResponse } from '../types';
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -13,13 +13,12 @@ export const Login: React.FC = () => {
     e.preventDefault();
     setError('');
     try {
-      // Ajusta la ruta '/auth/login' según tu endpoint de backend
-      const response = await api.post('/auth/login', { email, password });
-      const { access_token, user } = response.data;
-
-      // Si el backend devuelve el rol directamente o mockeado para pruebas:
-      login(access_token, user || { id: 1, email, role: Role.ADMIN });
-    } catch (err: any) {
+      const response = await api.post<AuthResponse>('/auth/login', {
+        email,
+        password,
+      });
+      login(response.data.token.access_token, response.data.user);
+    } catch {
       setError('Credenciales incorrectas o error de conexión con el servidor.');
     }
   };

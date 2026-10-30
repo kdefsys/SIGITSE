@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import api from '../api/axios';
 
 interface Props {
@@ -9,6 +10,7 @@ interface Props {
 
 export const CreateRequestModal: React.FC<Props> = ({ isOpen, onClose, onSuccess }) => {
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -22,7 +24,7 @@ export const CreateRequestModal: React.FC<Props> = ({ isOpen, onClose, onSuccess
 
     try {
       // 1. Crear la solicitud ITSE
-      const response = await api.post('/itse', { title });
+      const response = await api.post('/itse', { title, description });
       const createdRequest = response.data;
 
       // 2. Adjuntar documento si fue seleccionado
@@ -37,8 +39,15 @@ export const CreateRequestModal: React.FC<Props> = ({ isOpen, onClose, onSuccess
 
       onSuccess();
       onClose();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Error al crear la solicitud');
+    } catch (err: unknown) {
+      const message = axios.isAxiosError<{ message?: string | string[] }>(err)
+        ? err.response?.data?.message
+        : undefined;
+      setError(
+        Array.isArray(message)
+          ? message.join(', ')
+          : message || 'Error al crear la solicitud',
+      );
     } finally {
       setLoading(false);
     }
@@ -60,6 +69,17 @@ export const CreateRequestModal: React.FC<Props> = ({ isOpen, onClose, onSuccess
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Ej: Inspección Local Comercial A-102"
               style={inputStyle}
+            />
+          </div>
+
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={labelStyle}>Descripción de la solicitud</label>
+            <textarea
+              required
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Describe brevemente el establecimiento o trámite"
+              style={{ ...inputStyle, minHeight: '90px', fontFamily: 'inherit' }}
             />
           </div>
 
