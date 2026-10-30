@@ -68,6 +68,7 @@ describe('AuthService', () => {
       role: Role.INSPECTOR,
     });
     expect(result.token).toEqual({ access_token: 'signed-token' });
+    expect(result.user.role).toBe(Role.INSPECTOR);
   });
 
   it('includes the persisted user role in the login token', async () => {
@@ -77,12 +78,16 @@ describe('AuthService', () => {
     };
     findUnique.mockResolvedValue(storedUser);
 
-    await service.login({ email: user.email, password: 'password123' });
+    const result = await service.login({
+      email: user.email,
+      password: 'password123',
+    });
 
     expect(signAsync).toHaveBeenCalledWith({
       sub: user.id,
       email: user.email,
       role: Role.INSPECTOR,
     });
+    expect(result.user.role).toBe(Role.INSPECTOR);
   });
 });

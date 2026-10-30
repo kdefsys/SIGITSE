@@ -43,7 +43,12 @@ export class AuthService {
 
     return {
       message: 'Usuario registrado exitosamente',
-      user: { id: user.id, name: user.name, email: user.email },
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
       token,
     };
   }
@@ -73,7 +78,12 @@ export class AuthService {
 
     return {
       message: 'Inicio de sesión exitoso',
-      user: { id: user.id, name: user.name, email: user.email },
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
       token,
     };
   }
