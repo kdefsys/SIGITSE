@@ -24,6 +24,10 @@ export interface User {
   role: Role;
 }
 
+export interface AdminUser extends User {
+  createdAt: string;
+}
+
 export interface AuthResponse {
   message: string;
   token: {
