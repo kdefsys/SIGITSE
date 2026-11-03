@@ -87,6 +87,64 @@ calendar includes years needed by existing requests and the next ten years.
 Expired deadlines only produce an alert; they do not close requests or issue
 certificates automatically.
 
+## ITSE request consultation contract
+
+`GET /itse` returns the authenticated user's request list according to their
+role. `GET /itse/:id` returns the same request contract with its documents,
+payment and history. Both routes require a JWT. Access is scoped as follows:
+
+- `ADMIN`: may consult any request.
+- `INSPECTOR`: may consult requests assigned to that inspector.
+- `ADMINISTRADO`: may consult only requests they created.
+
+Requests outside the caller's scope return `404 Solicitud no encontrada.` The
+same response is used for a nonexistent request so the endpoint does not
+disclose whether another user's request exists.
+
+Example successful response:
+
+```json
+{
+  "id": 12,
+  "title": "Local comercial",
+  "description": "Solicitud de inspección",
+  "status": "EN_REVISION",
+  "createdAt": "2026-10-30T00:19:21.963Z",
+  "updatedAt": "2026-11-03T16:37:21.535Z",
+  "startedAt": "2026-10-30T00:19:21.963Z",
+  "dueAt": "2026-11-11T00:00:00.000Z",
+  "inspectorId": 8,
+  "user": { "id": 1, "name": "Usuario", "email": "usuario@example.com" },
+  "inspector": { "id": 8, "name": "Inspector", "email": "inspector@example.com" },
+  "payment": null,
+  "documents": [],
+  "history": [
+    {
+      "id": 4,
+      "action": "ESTADO_ACTUALIZADO",
+      "description": "Estado actualizado de PENDIENTE a EN_REVISION.",
+      "fromStatus": "PENDIENTE",
+      "toStatus": "EN_REVISION",
+      "createdAt": "2026-11-03T16:37:21.535Z",
+      "actor": { "id": 8, "name": "Inspector" }
+    }
+  ]
+}
+```
+
+Acceptance examples:
+
+- Allowed: the administrado who owns request `12` sends
+  `GET /itse/12` and receives `200`.
+- Allowed: inspector `8` sends `GET /itse/12` when `inspectorId` is `8` and
+  receives `200`.
+- Allowed: an administrator sends `GET /itse/12` and receives `200`.
+- Denied: a different administrado or an unassigned inspector sends
+  `GET /itse/12` and receives `404 Solicitud no encontrada.`.
+- Denied: a request outside the permitted `ReviewAction` enum or a review by a
+  non-reviewing role is rejected; when a review supplies `observation`, its
+  text is included in the status-change history entry.
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
