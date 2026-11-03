@@ -9,6 +9,25 @@ import { CreateRequestModal } from '../components/CreateRequestModal';
 import { PaymentModal } from '../components/PaymentModal';
 import { ReviewModal } from '../components/ReviewModal';
 import { AssignInspectorModal } from '../components/AssignInspectorModal';
+import { RequestDetailModal } from '../components/RequestDetailModal';
+
+function formatDueDate(value: string) {
+  return new Intl.DateTimeFormat('es-PE', {
+    dateStyle: 'medium',
+    timeZone: 'UTC',
+  }).format(new Date(value.slice(0, 10) + 'T00:00:00.000Z'));
+}
+
+function isOverdue(value: string) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Lima',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const today = `${parts.find((part) => part.type === 'year')?.value}-${parts.find((part) => part.type === 'month')?.value}-${parts.find((part) => part.type === 'day')?.value}`;
+  return today > value.slice(0, 10);
+}
 
 export const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -25,6 +44,7 @@ export const Dashboard: React.FC = () => {
   const [selectedPaymentId, setSelectedPaymentId] = useState<number | null>(null);
   const [selectedReviewId, setSelectedReviewId] = useState<number | null>(null);
   const [selectedAssignId, setSelectedAssignId] = useState<number | null>(null);
+  const [selectedDetailId, setSelectedDetailId] = useState<number | null>(null);
 
   const fetchRequests = async () => {
     try {
@@ -261,6 +281,9 @@ export const Dashboard: React.FC = () => {
                   <th style={{ padding: '0.75rem' }}>ID</th>
                   <th style={{ padding: '0.75rem' }}>Expediente</th>
                   <th style={{ padding: '0.75rem' }}>Estado</th>
+                  <th style={{ padding: '0.75rem' }}>Vencimiento</th>
+                  <th style={{ padding: '0.75rem' }}>Documentos</th>
+                  <th style={{ padding: '0.75rem' }}>Movimientos</th>
                   <th style={{ padding: '0.75rem' }}>Acciones Disponibles</th>
                 </tr>
               </thead>
@@ -274,7 +297,23 @@ export const Dashboard: React.FC = () => {
                         {req.status || 'PENDIENTE'}
                       </span>
                     </td>
+                    <td style={{ padding: '0.75rem' }}>
+                      {req.dueAt ? (
+                        <>
+                          {formatDueDate(req.dueAt)}
+                          {isOverdue(req.dueAt) && <span className="deadline-list-alert">Vencido</span>}
+                        </>
+                      ) : 'Sin fecha'}
+                    </td>
+                    <td style={{ padding: '0.75rem' }}>{req.documents?.length ?? 0}</td>
+                    <td style={{ padding: '0.75rem' }}>{req.history?.length ?? 0}</td>
                     <td style={{ padding: '0.75rem', display: 'flex', gap: '0.4rem' }}>
+                      <button
+                        onClick={() => setSelectedDetailId(req.id)}
+                        className="request-detail-button"
+                      >
+                        Ver detalle
+                      </button>
                       {/* Acciones por rol */}
                       {user?.role === Role.ADMINISTRADO && (
                         <button
@@ -336,6 +375,11 @@ export const Dashboard: React.FC = () => {
         isOpen={!!selectedAssignId}
         onClose={() => setSelectedAssignId(null)}
         onSuccess={fetchRequests}
+      />
+      <RequestDetailModal
+        key={selectedDetailId ?? 'closed'}
+        requestId={selectedDetailId}
+        onClose={() => setSelectedDetailId(null)}
       />
     </div>
   );

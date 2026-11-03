@@ -43,11 +43,36 @@ export interface Payment {
   paymentDate: string;
 }
 
+export interface ItseDocument {
+  id: number;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  createdAt: string;
+}
+
+export interface ItseHistoryEntry {
+  id: number;
+  action: string;
+  description: string;
+  fromStatus?: RequestStatus | null;
+  toStatus?: RequestStatus | null;
+  createdAt: string;
+  actor?: Pick<User, 'id' | 'name'> | null;
+}
+
 export interface ItseRequest {
   id: number;
   title: string;
   status: RequestStatus;
   createdAt: string;
+  startedAt: string;
+  dueAt: string;
+  description?: string;
   inspectorId?: number;
   payment?: Payment;
+  documents?: ItseDocument[];
+  history?: ItseHistoryEntry[];
+  user?: Pick<User, 'id' | 'name' | 'email'>;
+  inspector?: Pick<User, 'id' | 'name' | 'email'> | null;
 }
