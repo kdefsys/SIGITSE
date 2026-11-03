@@ -4,7 +4,11 @@ import { ItseService } from './itse.service';
 import { ReviewAction } from './dto/review-itse.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { Role } from '@prisma/client';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 
 describe('ItseService', () => {
   let service: ItseService;
@@ -164,7 +168,7 @@ describe('ItseService', () => {
       );
     });
 
-    it('allows an administrator to consult any request', async () => {
+    it('allows a funcionario to consult any request', async () => {
       prismaMock.itseRequest.findFirst.mockResolvedValue({
         id: requestId,
         title: 'Local',
@@ -182,7 +186,7 @@ describe('ItseService', () => {
         history: [],
       });
 
-      await service.findOne(requestId, 99, Role.ADMIN);
+      await service.findOne(requestId, 99, Role.FUNCIONARIO);
 
       expect(prismaMock.itseRequest.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: requestId } }),
@@ -237,14 +241,14 @@ describe('ItseService', () => {
           12,
           { action, observation: '   ' },
           8,
-          Role.INSPECTOR,
+          Role.FUNCIONARIO,
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
       expect(transactionMock.itseRequest.update).not.toHaveBeenCalled();
     },
   );
 
-  it('does not allow an inspector to review an unassigned request', async () => {
+  it('does not allow an inspector to review documents', async () => {
     prismaMock.itseRequest.findFirst.mockResolvedValue(null);
 
     await expect(
@@ -254,7 +258,7 @@ describe('ItseService', () => {
         8,
         Role.INSPECTOR,
       ),
-    ).rejects.toBeInstanceOf(NotFoundException);
+    ).rejects.toBeInstanceOf(ForbiddenException);
     expect(transactionMock.itseRequest.update).not.toHaveBeenCalled();
   });
 
@@ -268,17 +272,32 @@ describe('ItseService', () => {
 
     await service.reviewRequest(
       12,
-      { action: ReviewAction.OBSERVAR, observation: 'Adjuntar plano actualizado' },
+      {
+        action: ReviewAction.OBSERVAR,
+        observation: 'Adjuntar plano actualizado',
+      },
       8,
-      Role.INSPECTOR,
+      Role.FUNCIONARIO,
     );
 
     expect(transactionMock.itseRequestHistory.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        description: expect.stringContaining('Observación: Adjuntar plano actualizado'),
+        description: expect.stringContaining(
+          'Observación: Adjuntar plano actualizado',
+        ),
         fromStatus: 'PENDIENTE',
         toStatus: 'OBSERVADO',
       }),
     });
+  });
+  it('denies the administrator access to expedientes', async () => {
+    await expect(service.findAll(1, Role.ADMIN)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    await expect(service.findOne(12, 1, Role.ADMIN)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    expect(prismaMock.itseRequest.findMany).not.toHaveBeenCalled();
+    expect(prismaMock.itseRequest.findFirst).not.toHaveBeenCalled();
   });
 });

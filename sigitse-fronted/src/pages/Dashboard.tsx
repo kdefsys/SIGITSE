@@ -31,7 +31,7 @@ function isOverdue(value: string) {
 
 export const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
-  const [activeView, setActiveView] = useState<'requests' | 'users'>('requests');
+  const [activeView, setActiveView] = useState<'requests' | 'users'>(user?.role === Role.ADMIN ? 'users' : 'requests');
   const [requests, setRequests] = useState<ItseRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -61,10 +61,18 @@ export const Dashboard: React.FC = () => {
     let active = true;
     const loadRequests = async () => {
       try {
-        const response = await api.get<ItseRequest[]>('/itse');
-        if (active) setRequests(response.data);
+        if (user?.role === Role.ADMIN) {
+          const response = await api.get<AdminUser[]>('/admin/users');
+          if (active) setUsers(response.data);
+        } else {
+          const response = await api.get<ItseRequest[]>('/itse');
+          if (active) setRequests(response.data);
+        }
       } catch (error) {
-        if (active) console.error('Error al cargar solicitudes', error);
+        if (active) {
+          if (user?.role === Role.ADMIN) setUsersError('No se pudo cargar la lista de usuarios.');
+          else console.error('Error al cargar solicitudes', error);
+        }
       } finally {
         if (active) setLoading(false);
       }
@@ -74,7 +82,7 @@ export const Dashboard: React.FC = () => {
     return () => {
       active = false;
     };
-  }, []);
+  }, [user?.role]);
 
   const fetchUsers = async () => {
     setLoadingUsers(true);
@@ -129,6 +137,7 @@ export const Dashboard: React.FC = () => {
   const roleLabels: Record<User['role'], string> = {
     [Role.ADMINISTRADO]: 'Administrado',
     [Role.INSPECTOR]: 'Inspector',
+    [Role.FUNCIONARIO]: 'Funcionario',
     [Role.ADMIN]: 'Administrador',
   };
 
@@ -144,14 +153,14 @@ export const Dashboard: React.FC = () => {
 
         <nav style={{ flex: 1 }}>
           <ul style={{ listStyle: 'none' }}>
-            <li>
+            {user?.role !== Role.ADMIN && <li>
               <button
                 className={`sidebar-link${activeView === 'requests' ? ' sidebar-link-active' : ''}`}
                 onClick={() => setActiveView('requests')}
               >
                 <span aria-hidden="true">▤</span> Solicitudes ITSE
               </button>
-            </li>
+            </li>}
             {user?.role === Role.ADMIN && (
               <li>
                 <button
@@ -324,16 +333,16 @@ export const Dashboard: React.FC = () => {
                         </button>
                       )}
 
-                      {(user?.role === Role.INSPECTOR || user?.role === Role.ADMIN) && (
+                      {user?.role === Role.FUNCIONARIO && (
                         <button
                           onClick={() => setSelectedReviewId(req.id)}
                           style={{ background: '#0284c7', color: '#fff', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '4px', cursor: 'pointer' }}
                         >
-                          Evaluar
+                          Revisar documentos
                         </button>
                       )}
 
-                      {user?.role === Role.ADMIN && (
+                      {user?.role === Role.FUNCIONARIO && (
                         <button
                           onClick={() => setSelectedAssignId(req.id)}
                           style={{ background: '#8b5cf6', color: '#fff', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '4px', cursor: 'pointer' }}

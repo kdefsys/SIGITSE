@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import api from '../api/axios';
 import { errorMessage } from '../api/error-message';
 
@@ -13,6 +13,28 @@ export const AssignInspectorModal: React.FC<Props> = ({ requestId, isOpen, onClo
   const [inspectorId, setInspectorId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [inspectors, setInspectors] = useState<Array<{ id: number; name: string }>>([]);
+  const [loadingInspectors, setLoadingInspectors] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let active = true;
+    const load = async () => {
+      setLoadingInspectors(true);
+      setError('');
+      setInspectorId('');
+      try {
+        const response = await api.get<Array<{ id: number; name: string }>>('/itse/inspectors');
+        if (active) setInspectors(response.data);
+      } catch (err: unknown) {
+        if (active) setError(errorMessage(err, 'No se pudieron cargar los inspectores'));
+      } finally {
+        if (active) setLoadingInspectors(false);
+      }
+    };
+    void load();
+    return () => { active = false; };
+  }, [isOpen]);
 
   if (!isOpen || !requestId) return null;
 
@@ -43,22 +65,21 @@ export const AssignInspectorModal: React.FC<Props> = ({ requestId, isOpen, onClo
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '1.5rem' }}>
-            <label style={labelStyle}>ID del Inspector</label>
-            <input
-              type="number"
-              required
-              value={inspectorId}
-              onChange={(e) => setInspectorId(e.target.value)}
-              placeholder="Ej: 2"
-              style={inputStyle}
-            />
+            <label htmlFor="assigned-inspector" style={labelStyle}>Inspector</label>
+            <select id="assigned-inspector" required value={inspectorId}
+              onChange={(e) => setInspectorId(e.target.value)} style={inputStyle}
+              disabled={loadingInspectors || loading}>
+              <option value="">{loadingInspectors ? 'Cargando...' : 'Selecciona un inspector'}</option>
+              {inspectors.map((inspector) => <option key={inspector.id} value={inspector.id}>{inspector.name}</option>)}
+            </select>
+            {!loadingInspectors && inspectors.length === 0 && <p>No hay inspectores registrados.</p>}
           </div>
 
           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
             <button type="button" onClick={onClose} style={btnSecondaryStyle}>
               Cancelar
             </button>
-            <button type="submit" disabled={loading} className="btn-primary">
+            <button type="submit" disabled={loading || loadingInspectors || !inspectorId} className="btn-primary">
               {loading ? 'Asignando...' : 'Confirmar Asignación'}
             </button>
           </div>

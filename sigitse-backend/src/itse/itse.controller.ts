@@ -39,14 +39,16 @@ type AuthenticatedRequest = Request & {
 export class ItseController {
   constructor(private readonly itseService: ItseService) {}
 
-  @UseGuards(JwtAuthGuard, ItseRequestAccessGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, ItseRequestAccessGuard)
+  @Roles('ADMINISTRADO')
   @Post(':id/upload')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
         destination: './uploads',
         filename: (req, file, callback) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const uniqueSuffix =
+            Date.now() + '-' + Math.round(Math.random() * 1e9);
           const ext = extname(file.originalname);
           callback(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
         },
@@ -74,7 +76,8 @@ export class ItseController {
     );
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMINISTRADO')
   @Post()
   create(
     @Body() createItseRequestDto: CreateItseRequestDto,
@@ -84,13 +87,21 @@ export class ItseController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'INSPECTOR', 'ADMINISTRADO')
+  @Roles('FUNCIONARIO', 'INSPECTOR', 'ADMINISTRADO')
   @Get()
   findAll(@Req() req: AuthenticatedRequest) {
     return this.itseService.findAll(req.user.userId, req.user.role);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('FUNCIONARIO')
+  @Get('inspectors')
+  listInspectors() {
+    return this.itseService.listInspectors();
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('FUNCIONARIO', 'INSPECTOR', 'ADMINISTRADO')
   @Get(':id')
   findOne(
     @Param('id', ParseIntPipe) id: number,
@@ -99,7 +110,8 @@ export class ItseController {
     return this.itseService.findOne(id, req.user.userId, req.user.role);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('FUNCIONARIO', 'INSPECTOR', 'ADMINISTRADO')
   @Get(':id/documents/:documentId/download')
   async downloadDocument(
     @Param('id', ParseIntPipe) id: number,
@@ -113,14 +125,17 @@ export class ItseController {
       req.user.role,
     );
     const filename = encodeURIComponent(document.originalName);
-    return new StreamableFile(createReadStream(resolve(process.cwd(), document.path)), {
-      type: document.mimeType,
-      disposition: `attachment; filename*=UTF-8''${filename}`,
-    });
+    return new StreamableFile(
+      createReadStream(resolve(process.cwd(), document.path)),
+      {
+        type: document.mimeType,
+        disposition: `attachment; filename*=UTF-8''${filename}`,
+      },
+    );
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'INSPECTOR')
+  @Roles('FUNCIONARIO')
   @Patch(':id/review')
   reviewRequest(
     @Param('id', ParseIntPipe) id: number,
@@ -135,7 +150,8 @@ export class ItseController {
     );
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMINISTRADO')
   @Post(':id/payment')
   registerPayment(
     @Param('id', ParseIntPipe) itseRequestId: number,
@@ -151,7 +167,7 @@ export class ItseController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Roles('FUNCIONARIO')
   @Patch(':id/assign-inspector')
   assignInspector(
     @Param('id', ParseIntPipe) id: number,
