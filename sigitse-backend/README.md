@@ -43,6 +43,27 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 Do not commit `.env` or share the generated secret.
 
+## Database migrations
+
+For an empty database, run `npx prisma migrate deploy` and `npx prisma generate`
+before starting the API. The initial migration reproduces the previous schema;
+the following migration adds deadlines and the shared request history. Review reasons are retained in that history.
+
+For an existing database created with `prisma db push`, first verify that its
+schema matches the initial migration. Only then mark the baseline as applied
+with `npx prisma migrate resolve --applied 0_init`, followed by
+`npx prisma migrate deploy`. Never reset an existing database to install this fix.
+Earlier review reasons that were never stored cannot be recovered.
+
+### Review regression test
+
+Use a separate database named `sigitse_regression` (or a name starting with it),
+set `DATABASE_URL` to that database, apply migrations, and run
+`npm run test:integration`. The test creates and cleans its own synthetic users
+and requests. It checks real HTTP validation, private access, persisted reasons
+after reload/approval, and atomic rollback if history cannot be written.
+GitHub Actions runs this test against PostgreSQL 16 plus lint/build/unit tests.
+
 ## Compile and run the project
 
 ```bash

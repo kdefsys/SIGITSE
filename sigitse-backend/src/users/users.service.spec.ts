@@ -7,9 +7,9 @@ import { UsersService } from './users.service';
 describe('UsersService', () => {
   const transactionClient = {
     user: {
-      findUnique: jest.fn(),
-      count: jest.fn(),
-      update: jest.fn(),
+      findUnique: jest.fn<() => Promise<unknown>>(),
+      count: jest.fn<() => Promise<unknown>>(),
+      update: jest.fn<() => Promise<unknown>>(),
     },
   };
   const prismaMock = {
@@ -18,7 +18,7 @@ describe('UsersService', () => {
         callback(transactionClient),
     ),
     user: {
-      findMany: jest.fn(),
+      findMany: jest.fn<() => Promise<unknown>>(),
     },
   };
   const service = new UsersService(prismaMock as unknown as PrismaService);

@@ -1,4 +1,11 @@
-import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { Transform } from 'class-transformer';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsString,
+  MaxLength,
+  ValidateIf,
+} from 'class-validator';
 
 export enum ReviewAction {
   APROBAR = 'APROBADO',
@@ -10,7 +17,15 @@ export class ReviewItseDto {
   @IsEnum(ReviewAction)
   action: ReviewAction;
 
-  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @ValidateIf(
+    (dto: ReviewItseDto) =>
+      dto.action !== ReviewAction.APROBAR || dto.observation !== undefined,
+  )
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(4000)
   observation?: string;
 }
