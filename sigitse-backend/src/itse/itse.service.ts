@@ -68,9 +68,19 @@ export class ItseService {
     });
   }
 
+  listInspectors() {
+    return this.prisma.user.findMany({
+      where: { role: Role.INSPECTOR },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   async findAll(userId: number, role: Role) {
+    if (role === Role.ADMIN)
+      throw new ForbiddenException('El administrador solo gestiona cuentas.');
     const where =
-      role === Role.ADMIN
+      role === Role.FUNCIONARIO
         ? {}
         : role === Role.INSPECTOR
           ? { inspectorId: userId }
@@ -117,6 +127,10 @@ export class ItseService {
     userId: number,
     role: Role,
   ) {
+    if (role !== Role.ADMINISTRADO)
+      throw new ForbiddenException(
+        'Solo el propietario puede adjuntar documentos.',
+      );
     await this.ensureRequestAccess(itseRequestId, userId, role);
 
     return this.prisma.$transaction(async (transaction) => {
@@ -148,7 +162,7 @@ export class ItseService {
     userId: number,
     role: Role,
   ) {
-    if (role !== Role.ADMIN && role !== Role.INSPECTOR) {
+    if (role !== Role.FUNCIONARIO) {
       throw new ForbiddenException(
         'No tienes permiso para revisar solicitudes.',
       );
@@ -198,7 +212,7 @@ export class ItseService {
     userId: number,
     role: Role,
   ) {
-    if (role !== Role.ADMIN && role !== Role.ADMINISTRADO) {
+    if (role !== Role.ADMINISTRADO) {
       throw new ForbiddenException('No tienes permiso para registrar pagos.');
     }
     await this.ensureRequestAccess(itseRequestId, userId, role);
@@ -229,9 +243,9 @@ export class ItseService {
     role: Role,
     userId: number,
   ) {
-    if (role !== Role.ADMIN) {
+    if (role !== Role.FUNCIONARIO) {
       throw new ForbiddenException(
-        'Solo un administrador puede asignar inspectores.',
+        'Solo un funcionario puede asignar inspectores.',
       );
     }
 
@@ -290,7 +304,9 @@ export class ItseService {
   }
 
   private accessWhere(id: number, userId: number, role: Role) {
-    if (role === Role.ADMIN) {
+    if (role === Role.ADMIN)
+      throw new ForbiddenException('El administrador solo gestiona cuentas.');
+    if (role === Role.FUNCIONARIO) {
       return { id };
     }
     if (role === Role.INSPECTOR) {

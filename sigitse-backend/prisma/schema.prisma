@@ -18,6 +18,7 @@ enum RequestStatus {
 enum Role {
   ADMINISTRADO
   INSPECTOR
+  FUNCIONARIO
   ADMIN
 }
 
@@ -26,7 +27,7 @@ model User {
   email     String   @unique
   name      String
   password  String
-  role      Role     @default(ADMINISTRADO) // ADMIN, INSPECTOR, ADMINISTRADO
+  role      Role     @default(ADMINISTRADO)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
