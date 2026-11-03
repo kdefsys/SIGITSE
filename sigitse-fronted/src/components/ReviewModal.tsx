@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import api from '../api/axios';
+import { errorMessage } from '../api/error-message';
 import { RequestStatus } from '../types';
 
 interface Props {
@@ -30,8 +31,8 @@ export const ReviewModal: React.FC<Props> = ({ requestId, isOpen, onClose, onSuc
 
       onSuccess();
       onClose();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Error al emitir dictamen');
+    } catch (err: unknown) {
+      setError(errorMessage(err, 'Error al emitir dictamen'));
     } finally {
       setLoading(false);
     }

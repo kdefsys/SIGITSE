@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import api from '../api/axios';
+import { errorMessage } from '../api/error-message';
 
 interface Props {
   requestId: number | null;
@@ -27,8 +28,8 @@ export const AssignInspectorModal: React.FC<Props> = ({ requestId, isOpen, onClo
 
       onSuccess();
       onClose();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Error al asignar el inspector');
+    } catch (err: unknown) {
+      setError(errorMessage(err, 'Error al asignar el inspector'));
     } finally {
       setLoading(false);
     }
