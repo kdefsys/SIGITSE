@@ -11,6 +11,10 @@ import { ReviewAction, ReviewItseDto } from './dto/review-itse.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { AssignInspectorDto } from './dto/assign-inspector.dto';
 import { calculateDueDate, dateOnlyUtc, limaDate } from './business-calendar';
+import {
+  itseRequestResponseInclude,
+  toItseRequestResponseDto,
+} from './dto/itse-request-response.dto';
 
 const HISTORY_ACTION = {
   RECEIVED: 'SOLICITUD_RECIBIDA',
@@ -72,72 +76,26 @@ export class ItseService {
           ? { inspectorId: userId }
           : { userId };
 
-    return this.prisma.itseRequest.findMany({
+    const requests = await this.prisma.itseRequest.findMany({
       where,
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        documents: {
-          select: {
-            id: true,
-            originalName: true,
-            mimeType: true,
-            size: true,
-            createdAt: true,
-          },
-          orderBy: { createdAt: 'desc' },
-        },
-        history: {
-          select: {
-            id: true,
-            action: true,
-            actor: { select: { id: true, name: true } },
-            description: true,
-            fromStatus: true,
-            toStatus: true,
-            createdAt: true,
-          },
-          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        },
-      },
+      include: itseRequestResponseInclude,
     });
+
+    return requests.map(toItseRequestResponseDto);
   }
 
   async findOne(id: number, userId: number, role: Role) {
     const where = this.accessWhere(id, userId, role);
     const request = await this.prisma.itseRequest.findFirst({
       where,
-      include: {
-        user: { select: { id: true, name: true, email: true } },
-        inspector: { select: { id: true, name: true, email: true } },
-        payment: true,
-        documents: {
-          select: {
-            id: true,
-            originalName: true,
-            mimeType: true,
-            size: true,
-            createdAt: true,
-          },
-          orderBy: { createdAt: 'desc' },
-        },
-        history: {
-          include: { actor: { select: { id: true, name: true } } },
-          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        },
-      },
+      include: itseRequestResponseInclude,
     });
 
     if (!request) {
       throw new NotFoundException('Solicitud no encontrada.');
     }
 
-    return request;
+    return toItseRequestResponseDto(request);
   }
 
   async canAccessRequest(
@@ -220,9 +178,12 @@ export class ItseService {
           requestId: id,
           actorId: userId,
           action: HISTORY_ACTION.STATUS_CHANGED,
-          description:
-            observation ||
+          description: [
             `Estado actualizado de ${currentRequest.status} a ${request.status}.`,
+            observation ? `Observación: ${observation}` : null,
+          ]
+            .filter(Boolean)
+            .join(' '),
           fromStatus: currentRequest.status,
           toStatus: request.status,
         },

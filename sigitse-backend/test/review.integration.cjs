@@ -43,7 +43,7 @@ test('review reasons survive HTTP reload and subsequent approval; invalid writes
     let expediente = listing.body.find(x => x.id === caseId);
     assert.equal(expediente.status, 'OBSERVADO');
     const review = expediente.history.find(x => x.action === 'ESTADO_ACTUALIZADO');
-    assert.equal(review.description, 'Falta declaración firmada');
+    assert.ok(review.description.includes('Falta declaración firmada'));
     assert.equal(review.actor.id, users[1].id);
     assert.ok(review.createdAt);
     assert.equal(review.actor.password, undefined);
@@ -59,7 +59,7 @@ test('review reasons survive HTTP reload and subsequent approval; invalid writes
     assert.equal(expediente.status, 'APROBADO');
     const reviews = expediente.history.filter(x => x.action === 'ESTADO_ACTUALIZADO');
     assert.deepEqual(reviews.map(x => x.toStatus), ['APROBADO', 'OBSERVADO']);
-    assert.equal(reviews[1].description, 'Falta declaración firmada');
+    assert.ok(reviews[1].description.includes('Falta declaración firmada'));
     // Force a history FK failure: status and history must both remain unchanged.
     await assert.rejects(service.reviewRequest(caseId, { action: 'RECHAZADO', observation: 'Must roll back' }, -1, 'ADMIN'));
     const saved = await db.itseRequest.findUnique({ where: { id: caseId }, include: { history: true } });
