@@ -69,6 +69,24 @@ $ npm run test:e2e
 $ npm run test:cov
 ```
 
+## ITSE deadline calendar
+
+Apply the Prisma migrations and load the Lima holiday calendar before starting
+the application:
+
+```bash
+npx prisma migrate deploy
+npx prisma db seed
+```
+
+New requests are considered received when the server creates them. Their
+deadline is the ninth business day after receipt, excluding weekends and the
+seeded Peruvian national holidays. The seed also recalculates existing request
+deadlines from their original start dates after loading the holidays. The
+calendar includes years needed by existing requests and the next ten years.
+Expired deadlines only produce an alert; they do not close requests or issue
+certificates automatically.
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.

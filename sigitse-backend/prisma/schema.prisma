@@ -19,34 +19,38 @@ enum Role {
   ADMINISTRADO
   INSPECTOR
   ADMIN
-} 
+}
 
 model User {
   id        Int      @id @default(autoincrement())
   email     String   @unique
   name      String
   password  String
-  role      Role   @default(ADMINISTRADO) // ADMIN, INSPECTOR, ADMINISTRADO
+  role      Role     @default(ADMINISTRADO) // ADMIN, INSPECTOR, ADMINISTRADO
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  itseRequests ItseRequest[]
-  inspectorRequests ItseRequest[] @relation("InspectorRequests")
+  itseRequests      ItseRequest[]
+  inspectorRequests ItseRequest[]        @relation("InspectorRequests")
+  requestHistory    ItseRequestHistory[] @relation("HistoryActor")
 }
 
 model ItseRequest {
-  id          Int      @id @default(autoincrement())
+  id          Int                  @id @default(autoincrement())
   title       String
   description String
-  status    RequestStatus @default(PENDIENTE)
+  status      RequestStatus        @default(PENDIENTE)
   userId      Int
-  user        User     @relation(fields: [userId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  documents Document[]
-  payment   Payment?
+  user        User                 @relation(fields: [userId], references: [id])
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  startedAt   DateTime             @default(now())
+  dueAt       DateTime             @db.Date
+  documents   Document[]
+  payment     Payment?
+  history     ItseRequestHistory[]
   inspectorId Int?
-  inspector   User?    @relation("InspectorRequests", fields: [inspectorId], references: [id])
+  inspector   User?                @relation("InspectorRequests", fields: [inspectorId], references: [id])
 }
 
 model Document {
@@ -69,4 +73,29 @@ model Payment {
   itseRequestId Int         @unique
   itseRequest   ItseRequest @relation(fields: [itseRequestId], references: [id], onDelete: Cascade)
   createdAt     DateTime    @default(now())
+}
+
+model ItseRequestHistory {
+  id          Int            @id @default(autoincrement())
+  action      String
+  description String
+  fromStatus  RequestStatus?
+  toStatus    RequestStatus?
+  requestId   Int
+  request     ItseRequest    @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  actorId     Int?
+  actor       User?          @relation("HistoryActor", fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt   DateTime       @default(now())
+
+  @@index([requestId, createdAt])
+}
+
+model BusinessHoliday {
+  id    Int      @id @default(autoincrement())
+  date  DateTime @db.Date
+  name  String
+  scope String   @default("LIMA")
+
+  @@unique([date, scope])
+  @@index([scope, date])
 }

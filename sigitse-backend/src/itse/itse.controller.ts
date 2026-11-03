@@ -10,6 +10,7 @@ import {
   Patch,
   Post,
   Req,
+  StreamableFile,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -17,7 +18,8 @@ import {
 import { Role } from '@prisma/client';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { createReadStream } from 'fs';
+import { extname, resolve } from 'path';
 import { ItseService } from './itse.service';
 import { CreateItseRequestDto } from './dto/create-itse-request.dto';
 import { ReviewItseDto } from './dto/review-itse.dto';
@@ -88,6 +90,35 @@ export class ItseController {
     return this.itseService.findAll(req.user.userId, req.user.role);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get(':id')
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.itseService.findOne(id, req.user.userId, req.user.role);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/documents/:documentId/download')
+  async downloadDocument(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('documentId', ParseIntPipe) documentId: number,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const document = await this.itseService.findDocumentForDownload(
+      id,
+      documentId,
+      req.user.userId,
+      req.user.role,
+    );
+    const filename = encodeURIComponent(document.originalName);
+    return new StreamableFile(createReadStream(resolve(process.cwd(), document.path)), {
+      type: document.mimeType,
+      disposition: `attachment; filename*=UTF-8''${filename}`,
+    });
+  }
+
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'INSPECTOR')
   @Patch(':id/review')
@@ -127,6 +158,11 @@ export class ItseController {
     @Body() dto: AssignInspectorDto,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.itseService.assignInspector(id, dto, req.user.role);
+    return this.itseService.assignInspector(
+      id,
+      dto,
+      req.user.role,
+      req.user.userId,
+    );
   }
 }

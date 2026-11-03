@@ -7,20 +7,33 @@ import { NotFoundException } from '@nestjs/common';
 
 describe('ItseService', () => {
   let service: ItseService;
-  const prismaMock = {
+  const transactionMock = {
     itseRequest: {
       create: jest.fn(),
-      findMany: jest.fn(),
-      findFirst: jest.fn(),
       update: jest.fn(),
     },
+    itseRequestHistory: { create: jest.fn() },
     document: { create: jest.fn() },
     payment: { create: jest.fn() },
+  };
+  const prismaMock = {
+    itseRequest: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+    },
+    businessHoliday: { findMany: jest.fn() },
+    document: { findFirst: jest.fn() },
+    $transaction: jest.fn(
+      async (callback: (transaction: typeof transactionMock) => Promise<unknown>) =>
+        callback(transactionMock),
+    ),
     user: { findUnique: jest.fn() },
   };
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    prismaMock.businessHoliday.findMany.mockResolvedValue([]);
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ItseService,
@@ -40,12 +53,26 @@ describe('ItseService', () => {
 
   it('creates a request using the authenticated user ID', async () => {
     const dto = { title: 'Request', description: 'Details' };
-    prismaMock.itseRequest.create.mockResolvedValue({ id: 12, ...dto, userId: 5 });
+    transactionMock.itseRequest.create.mockResolvedValue({
+      id: 12,
+      ...dto,
+      userId: 5,
+      status: 'PENDIENTE',
+    });
+    transactionMock.itseRequestHistory.create.mockResolvedValue({});
 
     await service.create(dto, 5);
 
-    expect(prismaMock.itseRequest.create).toHaveBeenCalledWith({
-      data: { ...dto, userId: 5 },
+    expect(transactionMock.itseRequest.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ ...dto, userId: 5, dueAt: expect.any(Date) }),
+    });
+    expect(transactionMock.itseRequestHistory.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        requestId: 12,
+        actorId: 5,
+        action: 'SOLICITUD_RECIBIDA',
+        toStatus: 'PENDIENTE',
+      }),
     });
   });
 
@@ -80,7 +107,7 @@ describe('ItseService', () => {
         Role.ADMINISTRADO,
       ),
     ).rejects.toBeInstanceOf(NotFoundException);
-    expect(prismaMock.payment.create).not.toHaveBeenCalled();
+    expect(transactionMock.payment.create).not.toHaveBeenCalled();
   });
 
   it('does not allow an inspector to review an unassigned request', async () => {
@@ -89,6 +116,6 @@ describe('ItseService', () => {
     await expect(
       service.reviewRequest(12, { action: 'APROBADO' }, 8, Role.INSPECTOR),
     ).rejects.toBeInstanceOf(NotFoundException);
-    expect(prismaMock.itseRequest.update).not.toHaveBeenCalled();
+    expect(transactionMock.itseRequest.update).not.toHaveBeenCalled();
   });
 });
