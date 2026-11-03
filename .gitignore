@@ -2,6 +2,7 @@ node_modules/
 dist/
 .env
 
-# Local Taiga exports and verification reports
-docs/planning/*.json
-docs/planning/historias.csv
+# Local requirements and planning
+/SRS.md
+/SPRINTS.md
+/docs/planning/
