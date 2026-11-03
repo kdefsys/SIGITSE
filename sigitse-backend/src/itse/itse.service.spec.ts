@@ -1,34 +1,36 @@
 import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ItseService } from './itse.service';
+import { ReviewAction } from './dto/review-itse.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { Role } from '@prisma/client';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 describe('ItseService', () => {
   let service: ItseService;
   const transactionMock = {
     itseRequest: {
-      create: jest.fn(),
-      update: jest.fn(),
+      create: jest.fn<() => Promise<unknown>>(),
+      update: jest.fn<() => Promise<unknown>>(),
     },
-    itseRequestHistory: { create: jest.fn() },
-    document: { create: jest.fn() },
-    payment: { create: jest.fn() },
+    itseRequestHistory: { create: jest.fn<() => Promise<unknown>>() },
+    document: { create: jest.fn<() => Promise<unknown>>() },
+    payment: { create: jest.fn<() => Promise<unknown>>() },
   };
   const prismaMock = {
     itseRequest: {
-      findMany: jest.fn(),
-      findFirst: jest.fn(),
-      findUnique: jest.fn(),
+      findMany: jest.fn<() => Promise<unknown>>(),
+      findFirst: jest.fn<() => Promise<unknown>>(),
+      findUnique: jest.fn<() => Promise<unknown>>(),
     },
-    businessHoliday: { findMany: jest.fn() },
-    document: { findFirst: jest.fn() },
+    businessHoliday: { findMany: jest.fn<() => Promise<unknown>>() },
+    document: { findFirst: jest.fn<() => Promise<unknown>>() },
     $transaction: jest.fn(
-      async (callback: (transaction: typeof transactionMock) => Promise<unknown>) =>
-        callback(transactionMock),
+      async (
+        callback: (transaction: typeof transactionMock) => Promise<unknown>,
+      ) => callback(transactionMock),
     ),
-    user: { findUnique: jest.fn() },
+    user: { findUnique: jest.fn<() => Promise<unknown>>() },
   };
 
   beforeEach(async () => {
@@ -64,7 +66,11 @@ describe('ItseService', () => {
     await service.create(dto, 5);
 
     expect(transactionMock.itseRequest.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ ...dto, userId: 5, dueAt: expect.any(Date) }),
+      data: expect.objectContaining({
+        ...dto,
+        userId: 5,
+        dueAt: expect.any(Date),
+      }),
     });
     expect(transactionMock.itseRequestHistory.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -220,11 +226,34 @@ describe('ItseService', () => {
     expect(transactionMock.payment.create).not.toHaveBeenCalled();
   });
 
+  it.each([ReviewAction.OBSERVAR, ReviewAction.RECHAZAR])(
+    'rejects %s without a nonblank reason',
+    async (action) => {
+      prismaMock.itseRequest.findFirst.mockResolvedValue({
+        status: 'EN_REVISION',
+      });
+      await expect(
+        service.reviewRequest(
+          12,
+          { action, observation: '   ' },
+          8,
+          Role.INSPECTOR,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(transactionMock.itseRequest.update).not.toHaveBeenCalled();
+    },
+  );
+
   it('does not allow an inspector to review an unassigned request', async () => {
     prismaMock.itseRequest.findFirst.mockResolvedValue(null);
 
     await expect(
-      service.reviewRequest(12, { action: 'APROBADO' }, 8, Role.INSPECTOR),
+      service.reviewRequest(
+        12,
+        { action: ReviewAction.APROBAR },
+        8,
+        Role.INSPECTOR,
+      ),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(transactionMock.itseRequest.update).not.toHaveBeenCalled();
   });
@@ -239,7 +268,7 @@ describe('ItseService', () => {
 
     await service.reviewRequest(
       12,
-      { action: 'OBSERVADO', observation: 'Adjuntar plano actualizado' },
+      { action: ReviewAction.OBSERVAR, observation: 'Adjuntar plano actualizado' },
       8,
       Role.INSPECTOR,
     );

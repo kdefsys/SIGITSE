@@ -7,7 +7,7 @@ import {
 import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateItseRequestDto } from './dto/create-itse-request.dto';
-import { ReviewItseDto } from './dto/review-itse.dto';
+import { ReviewAction, ReviewItseDto } from './dto/review-itse.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { AssignInspectorDto } from './dto/assign-inspector.dto';
 import { calculateDueDate, dateOnlyUtc, limaDate } from './business-calendar';
@@ -98,7 +98,11 @@ export class ItseService {
     return toItseRequestResponseDto(request);
   }
 
-  async canAccessRequest(id: number, userId: number, role: Role): Promise<boolean> {
+  async canAccessRequest(
+    id: number,
+    userId: number,
+    role: Role,
+  ): Promise<boolean> {
     const request = await this.prisma.itseRequest.findFirst({
       where: this.accessWhere(id, userId, role),
       select: { id: true },
@@ -145,7 +149,9 @@ export class ItseService {
     role: Role,
   ) {
     if (role !== Role.ADMIN && role !== Role.INSPECTOR) {
-      throw new ForbiddenException('No tienes permiso para revisar solicitudes.');
+      throw new ForbiddenException(
+        'No tienes permiso para revisar solicitudes.',
+      );
     }
     const currentRequest = await this.prisma.itseRequest.findFirst({
       where: this.accessWhere(id, userId, role),
@@ -155,12 +161,18 @@ export class ItseService {
       throw new NotFoundException('Solicitud no encontrada.');
     }
 
+    const observation = reviewDto.observation?.trim();
+    if (reviewDto.action !== ReviewAction.APROBAR && !observation) {
+      throw new BadRequestException(
+        'Debes indicar el motivo de la observación o rechazo.',
+      );
+    }
+
     return this.prisma.$transaction(async (transaction) => {
       const request = await transaction.itseRequest.update({
-        where: { id },
+        where: this.accessWhere(id, userId, role),
         data: { status: reviewDto.action },
       });
-      const observation = reviewDto.observation?.trim();
       await transaction.itseRequestHistory.create({
         data: {
           requestId: id,
@@ -218,7 +230,9 @@ export class ItseService {
     userId: number,
   ) {
     if (role !== Role.ADMIN) {
-      throw new ForbiddenException('Solo un administrador puede asignar inspectores.');
+      throw new ForbiddenException(
+        'Solo un administrador puede asignar inspectores.',
+      );
     }
 
     // Validar que el usuario exista y sea INSPECTOR
@@ -227,7 +241,9 @@ export class ItseService {
     });
 
     if (!inspector || inspector.role !== 'INSPECTOR') {
-      throw new BadRequestException('El usuario seleccionado no tiene el rol de INSPECTOR.');
+      throw new BadRequestException(
+        'El usuario seleccionado no tiene el rol de INSPECTOR.',
+      );
     }
 
     const currentRequest = await this.prisma.itseRequest.findUnique({

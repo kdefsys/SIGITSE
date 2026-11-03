@@ -23,7 +23,7 @@ export const itseRequestResponseInclude = {
   },
   history: {
     include: { actor: { select: { id: true, name: true } } },
-    orderBy: { createdAt: 'desc' },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
   },
 } satisfies Prisma.ItseRequestInclude;
 

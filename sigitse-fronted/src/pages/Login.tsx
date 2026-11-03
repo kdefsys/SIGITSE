@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { isAxiosError } from 'axios';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth-context';
 import api from '../api/axios';
 import type { AuthResponse } from '../types';
 

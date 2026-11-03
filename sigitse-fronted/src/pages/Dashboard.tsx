@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { isAxiosError } from 'axios';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth-context';
 import api from '../api/axios';
 import { Role } from '../types';
 import type { AdminUser, ItseRequest, User } from '../types';
