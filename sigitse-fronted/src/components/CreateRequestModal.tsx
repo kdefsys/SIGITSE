@@ -18,6 +18,18 @@ interface DraftFields {
 type FieldName = keyof DraftFields;
 type FieldErrors = Partial<Record<FieldName, string>>;
 
+const fieldLimits: Record<FieldName, number> = {
+  title: 200,
+  description: 2000,
+  applicantName: 200,
+  applicantDocumentType: 3,
+  applicantDocumentNumber: 20,
+  applicantEmail: 254,
+  applicantPhone: 16,
+  establishmentAddress: 300,
+  establishmentDistrict: 100,
+};
+
 interface Props {
   isOpen: boolean;
   draft: ItseRequest | null;
@@ -49,29 +61,55 @@ export const CreateRequestModal: React.FC<Props> = ({ isOpen, draft, onClose, on
 
   const changeField = (name: FieldName, value: string) => {
     setFields((current) => ({ ...current, [name]: value }));
-    setFieldErrors((current) => ({ ...current, [name]: undefined }));
+    setFieldErrors((current) => ({
+      ...current,
+      [name]: undefined,
+      ...(name === 'applicantDocumentType' ? { applicantDocumentNumber: undefined } : {}),
+    }));
   };
 
   const save = async (present: boolean) => {
     if (loading) return;
     setError('');
+    const values = Object.fromEntries(
+      Object.entries(fields).map(([name, value]) => [name, value.trim()]),
+    ) as unknown as DraftFields;
+    values.applicantEmail = values.applicantEmail.toLowerCase();
+    values.applicantDocumentType = values.applicantDocumentType.toUpperCase();
+    values.applicantDocumentNumber = values.applicantDocumentNumber.toUpperCase();
+    values.applicantPhone = values.applicantPhone.replace(/[\s()-]/g, '');
+    const errors: FieldErrors = {};
+    for (const name of Object.keys(values) as FieldName[]) {
+      if (values[name].length > fieldLimits[name]) errors[name] = `Máximo ${fieldLimits[name]} caracteres.`;
+    }
     if (present) {
-      const errors: FieldErrors = {};
-      for (const name of Object.keys(fields) as FieldName[]) {
-        if (!fields[name].trim()) errors[name] = 'Completa este campo.';
+      for (const name of Object.keys(values) as FieldName[]) {
+        if (!values[name]) errors[name] = 'Completa este campo.';
       }
-      if (fields.applicantEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.applicantEmail.trim())) {
+      if (values.applicantDocumentType && !['DNI', 'CE'].includes(values.applicantDocumentType)) {
+        errors.applicantDocumentType = 'Selecciona DNI o carné de extranjería.';
+      }
+      if (values.applicantDocumentNumber) {
+        if (values.applicantDocumentType === 'DNI' && !/^\d{8}$/.test(values.applicantDocumentNumber)) {
+          errors.applicantDocumentNumber = 'El DNI debe tener 8 dígitos.';
+        }
+        if (values.applicantDocumentType === 'CE' && !/^[A-Z0-9]{1,20}$/.test(values.applicantDocumentNumber)) {
+          errors.applicantDocumentNumber = 'El CE admite hasta 20 letras o dígitos.';
+        }
+      }
+      if (values.applicantEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.applicantEmail)) {
         errors.applicantEmail = 'Ingresa un correo electrónico válido.';
       }
-      setFieldErrors(errors);
-      const firstError = Object.keys(errors)[0];
-      if (firstError) {
-        setError('Revisa los campos marcados.');
-        document.getElementById(`request-${firstError}`)?.focus();
-        return;
+      if (values.applicantPhone && !/^\+?[0-9]{7,15}$/.test(values.applicantPhone)) {
+        errors.applicantPhone = 'Ingresa entre 7 y 15 dígitos, con + internacional opcional.';
       }
-    } else {
-      setFieldErrors({});
+    }
+    setFieldErrors(errors);
+    const firstError = Object.keys(errors)[0];
+    if (firstError) {
+      setError('Revisa los campos marcados.');
+      document.getElementById(`request-${firstError}`)?.focus();
+      return;
     }
 
     setAction(present ? 'present' : 'draft');
@@ -79,9 +117,9 @@ export const CreateRequestModal: React.FC<Props> = ({ isOpen, draft, onClose, on
     let saved = false;
     try {
       if (id) {
-        await api.patch(`/itse/${id}/draft`, fields);
+        await api.patch(`/itse/${id}/draft`, values);
       } else {
-        const response = await api.post<ItseRequest>('/itse/drafts', fields);
+        const response = await api.post<ItseRequest>('/itse/drafts', values);
         id = response.data.id;
         setSavedDraftId(id);
       }
@@ -100,9 +138,14 @@ export const CreateRequestModal: React.FC<Props> = ({ isOpen, draft, onClose, on
       await onSuccess();
       onClose();
     } catch (err: unknown) {
-      const message = axios.isAxiosError<{ message?: string | string[] }>(err)
-        ? err.response?.data?.message
+      const response = axios.isAxiosError<{ message?: string | string[]; errors?: FieldErrors }>(err)
+        ? err.response?.data
         : undefined;
+      const message = response?.message;
+      if (response?.errors) {
+        setFieldErrors(response.errors);
+        document.getElementById(`request-${Object.keys(response.errors)[0]}`)?.focus();
+      }
       setError(Array.isArray(message) ? message.join(', ') : message || 'No se pudo completar la operación. Inténtalo nuevamente.');
       // Keep the saved ID and entered values so retrying does not create another draft.
       if (saved) await onSuccess();
@@ -119,13 +162,19 @@ export const CreateRequestModal: React.FC<Props> = ({ isOpen, draft, onClose, on
       required: true,
       'aria-invalid': Boolean(fieldErrors[name]),
       'aria-describedby': fieldErrors[name] ? `request-${name}-error` : undefined,
-      onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => changeField(name, e.target.value),
+      onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => changeField(name, e.target.value),
       style: { ...inputStyle, border: fieldErrors[name] ? '1px solid #dc2626' : inputStyle.border },
     };
     return (
       <div style={{ marginBottom: '1rem', flex: 1 }}>
         <label htmlFor={props.id} style={labelStyle}>{label} <span aria-hidden="true" style={{ color: '#dc2626' }}>*</span></label>
-        {name === 'description'
+        {name === 'applicantDocumentType'
+          ? <select {...props}>
+              <option value="">Selecciona una opción</option>
+              <option value="DNI">DNI</option>
+              <option value="CE">Carné de extranjería</option>
+            </select>
+          : name === 'description'
           ? <textarea {...props} placeholder={placeholder} style={{ ...props.style, minHeight: '90px', fontFamily: 'inherit' }} />
           : <input {...props} type={type} placeholder={placeholder} />}
         {fieldErrors[name] && <p id={`request-${name}-error`} style={{ color: '#b91c1c', fontSize: '0.85rem', marginTop: '0.25rem' }}>{fieldErrors[name]}</p>}
@@ -150,7 +199,7 @@ export const CreateRequestModal: React.FC<Props> = ({ isOpen, draft, onClose, on
             <h4>Datos del solicitante</h4>
             {field('applicantName', 'Nombre completo')}
             <div style={{ display: 'flex', gap: '0.75rem' }}>
-              {field('applicantDocumentType', 'Tipo de documento', 'text', 'DNI, CE...')}
+              {field('applicantDocumentType', 'Tipo de documento')}
               {field('applicantDocumentNumber', 'Número de documento')}
             </div>
             {field('applicantEmail', 'Correo electrónico', 'email')}

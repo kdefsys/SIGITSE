@@ -128,15 +128,42 @@ test('review reasons survive HTTP reload and subsequent approval; invalid writes
       .auth(owner, { type: 'bearer' })
       .expect(200);
     assert.ok(drafts.body.some((x) => x.id === caseId));
+    for (const invalid of [
+      { applicantDocumentType: 'RUC' },
+      { applicantDocumentNumber: '123' },
+      { applicantPhone: 'invalid' },
+    ]) {
+      const field = Object.keys(invalid)[0];
+      const rejected = await api
+        .post('/itse')
+        .auth(owner, { type: 'bearer' })
+        .send({ ...draftData, ...invalid })
+        .expect(400);
+      assert.ok(rejected.body.errors[field]);
+      await api
+        .patch(`/itse/${caseId}/draft`)
+        .auth(owner, { type: 'bearer' })
+        .send({ ...draftData, ...invalid })
+        .expect(200);
+      const failedSubmission = await api
+        .post(`/itse/${caseId}/submit`)
+        .auth(owner, { type: 'bearer' })
+        .expect(400);
+      assert.ok(failedSubmission.body.errors[field]);
+      const stored = await db.itseRequest.findUniqueOrThrow({ where: { id: caseId } });
+      assert.equal(stored.status, 'BORRADOR');
+      assert.equal(stored.startedAt, null);
+      assert.equal(stored.dueAt, null);
+    }
     await api
       .patch(`/itse/${caseId}/draft`)
       .auth(owner, { type: 'bearer' })
       .send({
-        applicantName: 'Synthetic Applicant',
-        applicantDocumentType: 'DNI',
-        applicantDocumentNumber: '12345678',
-        applicantEmail: 'synthetic@example.test',
-        applicantPhone: '999111222',
+        applicantName: '  Synthetic Applicant  ',
+        applicantDocumentType: ' dni ',
+        applicantDocumentNumber: ' 00123456 ',
+        applicantEmail: '  SYNTHETIC@EXAMPLE.TEST  ',
+        applicantPhone: ' +51 (999) 111-222 ',
         establishmentAddress: 'Av. Test 123',
         establishmentDistrict: 'Lima',
       })
@@ -150,6 +177,11 @@ test('review reasons survive HTTP reload and subsequent approval; invalid writes
       .auth(owner, { type: 'bearer' })
       .expect(200);
     assert.equal(submitted.body.status, 'PENDIENTE');
+    assert.equal(submitted.body.applicantName, 'Synthetic Applicant');
+    assert.equal(submitted.body.applicantDocumentType, 'DNI');
+    assert.equal(submitted.body.applicantDocumentNumber, '00123456');
+    assert.equal(submitted.body.applicantEmail, 'synthetic@example.test');
+    assert.equal(submitted.body.applicantPhone, '+51999111222');
     assert.ok(submitted.body.startedAt);
     assert.ok(submitted.body.dueAt);
     await api.get('/itse').auth(admin, { type: 'bearer' }).expect(403);

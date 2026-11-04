@@ -420,15 +420,6 @@ export const Dashboard: React.FC = () => {
                         >
                           Editar
                         </button>
-                        <button
-                          className="btn-primary"
-                          onClick={() => {
-                            setSelectedDraft(draft);
-                            setIsCreateOpen(true);
-                          }}
-                        >
-                          Presentar
-                        </button>
                       </td>
                     </tr>
                   ))}

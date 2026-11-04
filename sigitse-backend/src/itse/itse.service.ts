@@ -4,7 +4,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { isEmail } from 'class-validator';
 import { RequestStatus, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateItseRequestDto } from './dto/create-itse-request.dto';
@@ -12,6 +11,7 @@ import { ReviewAction, ReviewItseDto } from './dto/review-itse.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { AssignInspectorDto } from './dto/assign-inspector.dto';
 import { SaveItseDraftDto } from './dto/save-itse-draft.dto';
+import { normalizeRequestFields, validateRequestFields } from './request-fields';
 import { calculateDueDate, dateOnlyUtc, limaDate } from './business-calendar';
 import {
   itseRequestResponseInclude,
@@ -31,6 +31,8 @@ export class ItseService {
   constructor(private readonly prisma: PrismaService) {}
 
   async createDraft(dto: SaveItseDraftDto, userId: number) {
+    dto = normalizeRequestFields(dto);
+    validateRequestFields(dto, false);
     return this.prisma.$transaction(async (transaction) => {
       const request = await transaction.itseRequest.create({
         data: {
@@ -72,6 +74,8 @@ export class ItseService {
   }
 
   async updateDraft(id: number, userId: number, dto: SaveItseDraftDto) {
+    dto = normalizeRequestFields(dto);
+    validateRequestFields(dto, false);
     return this.prisma.$transaction(async (transaction) => {
       const result = await transaction.itseRequest.updateMany({
         where: { id, userId, status: RequestStatus.BORRADOR },
@@ -124,7 +128,6 @@ export class ItseService {
     const draft = await this.prisma.itseRequest.findFirst({
       where: { id, userId, status: RequestStatus.BORRADOR },
       select: {
-        id: true,
         title: true,
         description: true,
         applicantName: true,
@@ -139,26 +142,8 @@ export class ItseService {
     if (!draft) {
       throw new NotFoundException('Borrador no encontrado.');
     }
-    if (
-      ![
-        draft.title,
-        draft.description,
-        draft.applicantName,
-        draft.applicantDocumentType,
-        draft.applicantDocumentNumber,
-        draft.applicantEmail,
-        draft.applicantPhone,
-        draft.establishmentAddress,
-        draft.establishmentDistrict,
-      ].every((value) => typeof value === 'string' && value.trim())
-    ) {
-      throw new BadRequestException(
-        'Completa los datos del solicitante y del establecimiento antes de presentar la solicitud.',
-      );
-    }
-    if (!isEmail(draft.applicantEmail?.trim() ?? '')) {
-      throw new BadRequestException('Ingresa un correo electrónico válido.');
-    }
+    const fields = normalizeRequestFields(draft);
+    validateRequestFields(fields, true);
 
     const startedAt = new Date();
     const dueAt = await this.calculateDueAt(startedAt);
@@ -166,6 +151,7 @@ export class ItseService {
       const result = await transaction.itseRequest.updateMany({
         where: { id, userId, status: RequestStatus.BORRADOR },
         data: {
+          ...fields,
           status: RequestStatus.PENDIENTE,
           startedAt,
           dueAt,
@@ -191,6 +177,8 @@ export class ItseService {
   }
 
   async create(dto: CreateItseRequestDto, userId: number) {
+    dto = normalizeRequestFields(dto);
+    validateRequestFields(dto, true);
     const startedAt = new Date();
     const dueAt = await this.calculateDueAt(startedAt);
 
