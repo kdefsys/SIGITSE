@@ -36,6 +36,13 @@ export class ItseService {
         data: {
           title: dto.title ?? '',
           description: dto.description ?? '',
+          applicantName: dto.applicantName,
+          applicantDocumentType: dto.applicantDocumentType,
+          applicantDocumentNumber: dto.applicantDocumentNumber,
+          applicantEmail: dto.applicantEmail,
+          applicantPhone: dto.applicantPhone,
+          establishmentAddress: dto.establishmentAddress,
+          establishmentDistrict: dto.establishmentDistrict,
           userId,
           status: RequestStatus.BORRADOR,
           startedAt: null,

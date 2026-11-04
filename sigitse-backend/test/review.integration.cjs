@@ -97,14 +97,32 @@ test('review reasons survive HTTP reload and subsequent approval; invalid writes
         .send({ title: 'Forbidden', description: 'Forbidden' })
         .expect(403);
     }
+    const draftData = {
+      title: 'Regression test',
+      description: 'Synthetic data only',
+      applicantName: 'Initial Applicant',
+      applicantDocumentType: 'DNI',
+      applicantDocumentNumber: '87654321',
+      applicantEmail: 'initial@example.test',
+      applicantPhone: '999222333',
+      establishmentAddress: 'Av. Initial 456',
+      establishmentDistrict: 'San Miguel',
+    };
     const created = await api
       .post('/itse/drafts')
       .auth(owner, { type: 'bearer' })
-      .send({ title: 'Regression test', description: 'Synthetic data only' })
+      .send(draftData)
       .expect(201);
     caseId = created.body.id;
     assert.equal(created.body.status, 'BORRADOR');
     assert.equal(created.body.dueAt, null);
+    const reloaded = await api
+      .get(`/itse/${caseId}`)
+      .auth(owner, { type: 'bearer' })
+      .expect(200);
+    for (const [field, value] of Object.entries(draftData)) {
+      assert.equal(reloaded.body[field], value, `First save must retain ${field}`);
+    }
     const drafts = await api
       .get('/itse/drafts')
       .auth(owner, { type: 'bearer' })
