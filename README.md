@@ -18,6 +18,8 @@ npm run start:dev
 
 Si la base existente se creó con `prisma db push`, comprobar que coincide con la migración inicial antes de marcarla aplicada mediante `npx prisma migrate resolve --applied 0_init`. No reiniciar la base para instalar migraciones.
 
+El administrado puede guardar solicitudes como borradores, editarlas y presentarlas después desde **Mis borradores**. El plazo de 9 días hábiles comienza al presentar la solicitud; los borradores no aparecen en las bandejas de funcionarios ni inspectores.
+
 En otra terminal, desde `sigitse-fronted`:
 
 ```bash
