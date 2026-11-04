@@ -43,7 +43,8 @@ export const RequestDetailModal: React.FC<Props> = ({ requestId, onClose }) => {
   useEffect(() => {
     if (requestId === null) return;
     let active = true;
-    api.get<ItseRequest>(`/itse/${requestId}`)
+    api
+      .get<ItseRequest>(`/itse/${requestId}`)
       .then(({ data }) => {
         if (active) setRequest(data);
       })
@@ -55,7 +56,7 @@ export const RequestDetailModal: React.FC<Props> = ({ requestId, onClose }) => {
         setError(
           Array.isArray(message)
             ? message.join('. ')
-            : message ?? 'No se pudo cargar el detalle del expediente.',
+            : (message ?? 'No se pudo cargar el detalle del expediente.'),
         );
       })
       .finally(() => {
@@ -72,10 +73,9 @@ export const RequestDetailModal: React.FC<Props> = ({ requestId, onClose }) => {
     setDownloadingId(documentId);
     setError('');
     try {
-      const { data } = await api.get<Blob>(
-        `/itse/${requestId}/documents/${documentId}/download`,
-        { responseType: 'blob' },
-      );
+      const { data } = await api.get<Blob>(`/itse/${requestId}/documents/${documentId}/download`, {
+        responseType: 'blob',
+      });
       const url = URL.createObjectURL(data);
       const link = document.createElement('a');
       link.href = url;
@@ -89,14 +89,15 @@ export const RequestDetailModal: React.FC<Props> = ({ requestId, onClose }) => {
       setError(
         Array.isArray(message)
           ? message.join('. ')
-          : message ?? 'No se pudo descargar el documento.',
+          : (message ?? 'No se pudo descargar el documento.'),
       );
     } finally {
       setDownloadingId(null);
     }
   };
 
-  const overdue = request !== null && limaToday() > request.dueAt.slice(0, 10);
+  const overdue =
+    request !== null && request.dueAt !== null && limaToday() > request.dueAt.slice(0, 10);
 
   return (
     <div className="request-detail-overlay" role="presentation">
@@ -111,12 +112,21 @@ export const RequestDetailModal: React.FC<Props> = ({ requestId, onClose }) => {
             <p className="request-detail-eyebrow">Expediente ITSE #{requestId}</p>
             <h2 id="request-detail-title">{request?.title ?? 'Detalle del expediente'}</h2>
           </div>
-          <button type="button" className="request-detail-close" onClick={onClose} aria-label="Cerrar">
+          <button
+            type="button"
+            className="request-detail-close"
+            onClick={onClose}
+            aria-label="Cerrar"
+          >
             ×
           </button>
         </header>
 
-        {error && <p className="request-detail-error" role="alert">{error}</p>}
+        {error && (
+          <p className="request-detail-error" role="alert">
+            {error}
+          </p>
+        )}
         {loading ? (
           <p className="request-detail-message">Cargando expediente...</p>
         ) : request ? (
@@ -129,14 +139,58 @@ export const RequestDetailModal: React.FC<Props> = ({ requestId, onClose }) => {
             <section className="request-detail-section">
               <h3>Estado y plazo</h3>
               <dl className="request-detail-grid">
-                <div><dt>Estado actual</dt><dd>{request.status}</dd></div>
-                <div><dt>Fecha de inicio</dt><dd>{formatDate(request.startedAt)}</dd></div>
-                <div><dt>Vencimiento</dt><dd>{formatDate(request.dueAt)}</dd></div>
-                <div><dt>Solicitante</dt><dd>{request.user?.name ?? 'No disponible'}</dd></div>
-                <div><dt>Inspector</dt><dd>{request.inspector?.name ?? 'Sin asignar'}</dd></div>
+                <div>
+                  <dt>Estado actual</dt>
+                  <dd>{request.status}</dd>
+                </div>
+                <div>
+                  <dt>Fecha de inicio</dt>
+                  <dd>{request.startedAt ? formatDate(request.startedAt) : 'Aún no presentada'}</dd>
+                </div>
+                <div>
+                  <dt>Vencimiento</dt>
+                  <dd>{request.dueAt ? formatDate(request.dueAt) : 'Se calcula al presentar'}</dd>
+                </div>
+                <div>
+                  <dt>Solicitante</dt>
+                  <dd>{request.user?.name ?? 'No disponible'}</dd>
+                </div>
+                <div>
+                  <dt>Inspector</dt>
+                  <dd>{request.inspector?.name ?? 'Sin asignar'}</dd>
+                </div>
+                <div>
+                  <dt>Solicitante</dt>
+                  <dd>{request.applicantName ?? 'No registrado'}</dd>
+                </div>
+                <div>
+                  <dt>Documento</dt>
+                  <dd>
+                    {request.applicantDocumentType && request.applicantDocumentNumber
+                      ? `${request.applicantDocumentType} ${request.applicantDocumentNumber}`
+                      : 'No registrado'}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Correo del solicitante</dt>
+                  <dd>{request.applicantEmail ?? 'No registrado'}</dd>
+                </div>
+                <div>
+                  <dt>Teléfono</dt>
+                  <dd>{request.applicantPhone ?? 'No registrado'}</dd>
+                </div>
+                <div>
+                  <dt>Dirección del establecimiento</dt>
+                  <dd>{request.establishmentAddress ?? 'No registrada'}</dd>
+                </div>
+                <div>
+                  <dt>Distrito</dt>
+                  <dd>{request.establishmentDistrict ?? 'No registrado'}</dd>
+                </div>
                 {request.description && (
                   <div className="request-detail-description">
-                    <dt>Descripción</dt><dd>{request.description}</dd>
+                    <dt>Descripción</dt>
+                    <dd>{request.description}</dd>
                   </div>
                 )}
               </dl>
@@ -150,7 +204,9 @@ export const RequestDetailModal: React.FC<Props> = ({ requestId, onClose }) => {
                     <li key={item.id}>
                       <div>
                         <strong>{item.originalName}</strong>
-                        <span>{formatDate(item.createdAt)} · {(item.size / 1024).toFixed(1)} KB</span>
+                        <span>
+                          {formatDate(item.createdAt)} · {(item.size / 1024).toFixed(1)} KB
+                        </span>
                       </div>
                       <button
                         type="button"
@@ -196,7 +252,9 @@ export const RequestDetailModal: React.FC<Props> = ({ requestId, onClose }) => {
           </div>
         ) : null}
         <footer className="request-detail-footer">
-          <button type="button" onClick={onClose}>Cerrar</button>
+          <button type="button" onClick={onClose}>
+            Cerrar
+          </button>
         </footer>
       </section>
     </div>

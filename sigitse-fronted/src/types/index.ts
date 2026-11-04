@@ -8,6 +8,7 @@ export const Role = {
 export type Role = (typeof Role)[keyof typeof Role];
 
 export const RequestStatus = {
+  BORRADOR: 'BORRADOR',
   PENDIENTE: 'PENDIENTE',
   EN_REVISION: 'EN_REVISION',
   OBSERVADO: 'OBSERVADO',
@@ -15,8 +16,7 @@ export const RequestStatus = {
   RECHAZADO: 'RECHAZADO',
 } as const;
 
-export type RequestStatus =
-  (typeof RequestStatus)[keyof typeof RequestStatus];
+export type RequestStatus = (typeof RequestStatus)[keyof typeof RequestStatus];
 
 export interface User {
   id: number;
@@ -67,8 +67,16 @@ export interface ItseRequest {
   title: string;
   status: RequestStatus;
   createdAt: string;
-  startedAt: string;
-  dueAt: string;
+  updatedAt: string;
+  startedAt: string | null;
+  dueAt: string | null;
+  applicantName: string | null;
+  applicantDocumentType: string | null;
+  applicantDocumentNumber: string | null;
+  applicantEmail: string | null;
+  applicantPhone: string | null;
+  establishmentAddress: string | null;
+  establishmentDistrict: string | null;
   description?: string;
   inspectorId?: number;
   payment?: Payment;

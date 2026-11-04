@@ -31,8 +31,13 @@ function isOverdue(value: string) {
 
 export const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
-  const [activeView, setActiveView] = useState<'requests' | 'users'>(user?.role === Role.ADMIN ? 'users' : 'requests');
+  const [activeView, setActiveView] = useState<'requests' | 'drafts' | 'users'>(
+    user?.role === Role.ADMIN ? 'users' : 'requests',
+  );
   const [requests, setRequests] = useState<ItseRequest[]>([]);
+  const [drafts, setDrafts] = useState<ItseRequest[]>([]);
+  const [draftsError, setDraftsError] = useState('');
+  const [submittingDraftId, setSubmittingDraftId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
@@ -41,6 +46,7 @@ export const Dashboard: React.FC = () => {
 
   // Estados para abrir modales
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [selectedDraft, setSelectedDraft] = useState<ItseRequest | null>(null);
   const [selectedPaymentId, setSelectedPaymentId] = useState<number | null>(null);
   const [selectedReviewId, setSelectedReviewId] = useState<number | null>(null);
   const [selectedAssignId, setSelectedAssignId] = useState<number | null>(null);
@@ -57,6 +63,56 @@ export const Dashboard: React.FC = () => {
     }
   };
 
+  const fetchDrafts = async () => {
+    setDraftsError('');
+    try {
+      const response = await api.get<ItseRequest[]>('/itse/drafts');
+      setDrafts(response.data);
+    } catch (error) {
+      const message = isAxiosError<{ message?: string | string[] }>(error)
+        ? error.response?.data?.message
+        : undefined;
+      setDraftsError(
+        Array.isArray(message)
+          ? message.join('. ')
+          : (message ?? 'No se pudieron cargar los borradores.'),
+      );
+    }
+  };
+
+  const refreshAdministradoData = async () => {
+    await Promise.all([fetchRequests(), fetchDrafts()]);
+  };
+
+  const submitDraft = async (draft: ItseRequest) => {
+    if (
+      !window.confirm(
+        'Al presentar la solicitud comenzará el plazo de 9 días hábiles. ¿Deseas continuar?',
+      )
+    ) {
+      return;
+    }
+
+    setSubmittingDraftId(draft.id);
+    setDraftsError('');
+    try {
+      await api.post(`/itse/${draft.id}/submit`);
+      await refreshAdministradoData();
+      setActiveView('requests');
+    } catch (error) {
+      const message = isAxiosError<{ message?: string | string[] }>(error)
+        ? error.response?.data?.message
+        : undefined;
+      setDraftsError(
+        Array.isArray(message)
+          ? message.join('. ')
+          : (message ?? 'No se pudo presentar la solicitud.'),
+      );
+    } finally {
+      setSubmittingDraftId(null);
+    }
+  };
+
   useEffect(() => {
     let active = true;
     const loadRequests = async () => {
@@ -67,11 +123,17 @@ export const Dashboard: React.FC = () => {
         } else {
           const response = await api.get<ItseRequest[]>('/itse');
           if (active) setRequests(response.data);
+          if (user?.role === Role.ADMINISTRADO) {
+            const draftResponse = await api.get<ItseRequest[]>('/itse/drafts');
+            if (active) setDrafts(draftResponse.data);
+          }
         }
       } catch (error) {
         if (active) {
           if (user?.role === Role.ADMIN) setUsersError('No se pudo cargar la lista de usuarios.');
-          else console.error('Error al cargar solicitudes', error);
+          else if (user?.role === Role.ADMINISTRADO) {
+            setDraftsError('No se pudieron cargar los borradores.');
+          } else console.error('Error al cargar solicitudes', error);
         }
       } finally {
         if (active) setLoading(false);
@@ -96,7 +158,7 @@ export const Dashboard: React.FC = () => {
         setUsersError(
           Array.isArray(message)
             ? message.join('. ')
-            : message ?? 'No se pudo cargar la lista de usuarios.',
+            : (message ?? 'No se pudo cargar la lista de usuarios.'),
         );
       } else {
         setUsersError('No se pudo cargar la lista de usuarios.');
@@ -121,7 +183,7 @@ export const Dashboard: React.FC = () => {
         isAxiosError<{ message?: string | string[] }>(error)
           ? Array.isArray(error.response?.data?.message)
             ? error.response.data.message.join('. ')
-            : error.response?.data?.message ?? 'No se pudo actualizar el rol.'
+            : (error.response?.data?.message ?? 'No se pudo actualizar el rol.')
           : 'No se pudo actualizar el rol.',
       );
     } finally {
@@ -147,20 +209,46 @@ export const Dashboard: React.FC = () => {
       <aside className="sidebar">
         <h2>SIGITSE Panel</h2>
         <div style={{ marginBottom: '2rem', fontSize: '0.85rem', color: '#94a3b8' }}>
-          <p><strong>Usuario:</strong> {user?.email}</p>
-          <p><strong>Rol:</strong> <span style={{ color: '#38bdf8' }}>{user?.role}</span></p>
+          <p>
+            <strong>Usuario:</strong> {user?.email}
+          </p>
+          <p>
+            <strong>Rol:</strong> <span style={{ color: '#38bdf8' }}>{user?.role}</span>
+          </p>
         </div>
 
         <nav style={{ flex: 1 }}>
           <ul style={{ listStyle: 'none' }}>
-            {user?.role !== Role.ADMIN && <li>
-              <button
-                className={`sidebar-link${activeView === 'requests' ? ' sidebar-link-active' : ''}`}
-                onClick={() => setActiveView('requests')}
-              >
-                <span aria-hidden="true">▤</span> Solicitudes ITSE
-              </button>
-            </li>}
+            {user?.role !== Role.ADMIN && user?.role !== Role.ADMINISTRADO && (
+              <li>
+                <button
+                  className={`sidebar-link${activeView === 'requests' ? ' sidebar-link-active' : ''}`}
+                  onClick={() => setActiveView('requests')}
+                >
+                  <span aria-hidden="true">▤</span> Solicitudes ITSE
+                </button>
+              </li>
+            )}
+            {user?.role === Role.ADMINISTRADO && (
+              <>
+                <li>
+                  <button
+                    className={`sidebar-link${activeView === 'requests' ? ' sidebar-link-active' : ''}`}
+                    onClick={() => setActiveView('requests')}
+                  >
+                    <span aria-hidden="true">▤</span> Mis solicitudes
+                  </button>
+                </li>
+                <li>
+                  <button
+                    className={`sidebar-link${activeView === 'drafts' ? ' sidebar-link-active' : ''}`}
+                    onClick={() => setActiveView('drafts')}
+                  >
+                    <span aria-hidden="true">▧</span> Mis borradores
+                  </button>
+                </li>
+              </>
+            )}
             {user?.role === Role.ADMIN && (
               <li>
                 <button
@@ -174,7 +262,18 @@ export const Dashboard: React.FC = () => {
           </ul>
         </nav>
 
-        <button onClick={logout} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '0.6rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>
+        <button
+          onClick={logout}
+          style={{
+            background: '#ef4444',
+            color: '#fff',
+            border: 'none',
+            padding: '0.6rem',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontWeight: 600,
+          }}
+        >
           Cerrar Sesión
         </button>
       </aside>
@@ -183,12 +282,18 @@ export const Dashboard: React.FC = () => {
       <main className="main-content">
         <header style={{ marginBottom: '2rem' }}>
           <h1 style={{ fontSize: '1.75rem', color: '#0f172a' }}>
-            {activeView === 'users' ? 'Gestión de usuarios' : 'Panel de Control'}
+            {activeView === 'users'
+              ? 'Gestión de usuarios'
+              : activeView === 'drafts'
+                ? 'Mis borradores'
+                : 'Panel de Control'}
           </h1>
           <p style={{ color: '#64748b' }}>
             {activeView === 'users'
               ? 'Consulta las cuentas registradas y administra sus roles.'
-              : 'Gestión Integrada de Inspecciones Técnicas de Seguridad en Edificaciones'}
+              : activeView === 'drafts'
+                ? 'Continúa editando tus solicitudes y preséntalas cuando estén listas.'
+                : 'Gestión Integrada de Inspecciones Técnicas de Seguridad en Edificaciones'}
           </p>
         </header>
 
@@ -202,7 +307,11 @@ export const Dashboard: React.FC = () => {
               <span className="users-count">{users.length} usuarios</span>
             </div>
 
-            {usersError && <p className="users-error" role="alert">{usersError}</p>}
+            {usersError && (
+              <p className="users-error" role="alert">
+                {usersError}
+              </p>
+            )}
 
             {loadingUsers ? (
               <p className="users-empty">Cargando usuarios...</p>
@@ -236,10 +345,7 @@ export const Dashboard: React.FC = () => {
                             className="role-select"
                             aria-label={`Rol de ${registeredUser.name}`}
                             value={registeredUser.role}
-                            disabled={
-                              updatingUserId !== null ||
-                              registeredUser.id === user.id
-                            }
+                            disabled={updatingUserId !== null || registeredUser.id === user.id}
                             onChange={(event) => {
                               const selectedRole = Object.values(Role).find(
                                 (role) => role === event.currentTarget.value,
@@ -248,7 +354,9 @@ export const Dashboard: React.FC = () => {
                             }}
                           >
                             {Object.values(Role).map((role) => (
-                              <option key={role} value={role}>{roleLabels[role]}</option>
+                              <option key={role} value={role}>
+                                {roleLabels[role]}
+                              </option>
                             ))}
                           </select>
                           {updatingUserId === registeredUser.id && (
@@ -262,111 +370,253 @@ export const Dashboard: React.FC = () => {
               </div>
             )}
           </section>
+        ) : activeView === 'drafts' && user?.role === Role.ADMINISTRADO ? (
+          <section className="card">
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '1rem',
+              }}
+            >
+              <div>
+                <h3>Mis borradores</h3>
+                <p style={{ color: '#64748b', fontSize: '0.9rem' }}>
+                  El plazo de 9 días hábiles comienza al presentar la solicitud.
+                </p>
+              </div>
+              <button
+                className="btn-primary"
+                onClick={() => {
+                  setSelectedDraft(null);
+                  setIsCreateOpen(true);
+                }}
+              >
+                + Nuevo borrador
+              </button>
+            </div>
+            {draftsError && (
+              <p role="alert" style={{ color: '#b91c1c' }}>
+                {draftsError}
+              </p>
+            )}
+            {loading ? (
+              <p>Cargando borradores...</p>
+            ) : drafts.length === 0 ? (
+              <p style={{ color: '#64748b', fontSize: '0.9rem' }}>
+                No tienes borradores guardados.
+              </p>
+            ) : (
+              <table
+                style={{
+                  width: '100%',
+                  borderCollapse: 'collapse',
+                  textAlign: 'left',
+                  fontSize: '0.9rem',
+                }}
+              >
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #e2e8f0', color: '#475569' }}>
+                    <th style={{ padding: '0.75rem' }}>Expediente</th>
+                    <th style={{ padding: '0.75rem' }}>Última edición</th>
+                    <th style={{ padding: '0.75rem' }}>Documentos</th>
+                    <th style={{ padding: '0.75rem' }}>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {drafts.map((draft) => (
+                    <tr key={draft.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                      <td style={{ padding: '0.75rem' }}>
+                        {draft.title.trim() || `Borrador #${draft.id}`}
+                      </td>
+                      <td style={{ padding: '0.75rem' }}>
+                        {new Date(draft.updatedAt).toLocaleDateString('es-PE')}
+                      </td>
+                      <td style={{ padding: '0.75rem' }}>{draft.documents?.length ?? 0}</td>
+                      <td style={{ padding: '0.75rem', display: 'flex', gap: '0.4rem' }}>
+                        <button
+                          className="request-detail-button"
+                          onClick={() => setSelectedDetailId(draft.id)}
+                        >
+                          Ver
+                        </button>
+                        <button
+                          className="request-detail-button"
+                          onClick={() => {
+                            setSelectedDraft(draft);
+                            setIsCreateOpen(true);
+                          }}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          className="btn-primary"
+                          disabled={submittingDraftId !== null}
+                          onClick={() => void submitDraft(draft)}
+                        >
+                          {submittingDraftId === draft.id ? 'Presentando...' : 'Presentar'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </section>
         ) : (
           <>
-        {user?.role === Role.ADMINISTRADO && (
-          <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <h3>Mis Trámites ITSE</h3>
-              <p style={{ color: '#64748b', fontSize: '0.9rem' }}>Registra una nueva solicitud y adjunta tus requisitos.</p>
+            {user?.role === Role.ADMINISTRADO && (
+              <div
+                className="card"
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              >
+                <div>
+                  <h3>Mis Trámites ITSE</h3>
+                  <p style={{ color: '#64748b', fontSize: '0.9rem' }}>
+                    Registra una nueva solicitud y adjunta tus requisitos.
+                  </p>
+                </div>
+                <button className="btn-primary" onClick={() => setIsCreateOpen(true)}>
+                  + Nueva Solicitud
+                </button>
+              </div>
+            )}
+
+            {/* Tabla General */}
+            <div className="card">
+              <h3 style={{ marginBottom: '1rem' }}>Expedientes Registrados</h3>
+              {loading ? (
+                <p>Cargando datos...</p>
+              ) : requests.length === 0 ? (
+                <p style={{ color: '#64748b', fontSize: '0.9rem' }}>
+                  No hay solicitudes registradas aún.
+                </p>
+              ) : (
+                <table
+                  style={{
+                    width: '100%',
+                    borderCollapse: 'collapse',
+                    textAlign: 'left',
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #e2e8f0', color: '#475569' }}>
+                      <th style={{ padding: '0.75rem' }}>ID</th>
+                      <th style={{ padding: '0.75rem' }}>Expediente</th>
+                      <th style={{ padding: '0.75rem' }}>Estado</th>
+                      <th style={{ padding: '0.75rem' }}>Vencimiento</th>
+                      <th style={{ padding: '0.75rem' }}>Documentos</th>
+                      <th style={{ padding: '0.75rem' }}>Movimientos</th>
+                      <th style={{ padding: '0.75rem' }}>Acciones Disponibles</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {requests.map((req) => (
+                      <tr key={req.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                        <td style={{ padding: '0.75rem' }}>#{req.id}</td>
+                        <td style={{ padding: '0.75rem' }}>{req.title}</td>
+                        <td style={{ padding: '0.75rem' }}>
+                          <span
+                            className={`badge badge-${req.status?.toLowerCase() || 'pendiente'}`}
+                          >
+                            {req.status || 'PENDIENTE'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '0.75rem' }}>
+                          {req.dueAt ? (
+                            <>
+                              {formatDueDate(req.dueAt)}
+                              {isOverdue(req.dueAt) && (
+                                <span className="deadline-list-alert">Vencido</span>
+                              )}
+                            </>
+                          ) : (
+                            'Sin fecha'
+                          )}
+                        </td>
+                        <td style={{ padding: '0.75rem' }}>{req.documents?.length ?? 0}</td>
+                        <td style={{ padding: '0.75rem' }}>{req.history?.length ?? 0}</td>
+                        <td style={{ padding: '0.75rem', display: 'flex', gap: '0.4rem' }}>
+                          <button
+                            onClick={() => setSelectedDetailId(req.id)}
+                            className="request-detail-button"
+                          >
+                            Ver detalle
+                          </button>
+                          {/* Acciones por rol */}
+                          {user?.role === Role.ADMINISTRADO && (
+                            <button
+                              onClick={() => setSelectedPaymentId(req.id)}
+                              style={{
+                                background: '#10b981',
+                                color: '#fff',
+                                border: 'none',
+                                padding: '0.4rem 0.8rem',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Registrar Pago
+                            </button>
+                          )}
+
+                          {user?.role === Role.FUNCIONARIO && (
+                            <button
+                              onClick={() => setSelectedReviewId(req.id)}
+                              style={{
+                                background: '#0284c7',
+                                color: '#fff',
+                                border: 'none',
+                                padding: '0.4rem 0.8rem',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Revisar documentos
+                            </button>
+                          )}
+
+                          {user?.role === Role.FUNCIONARIO && (
+                            <button
+                              onClick={() => setSelectedAssignId(req.id)}
+                              style={{
+                                background: '#8b5cf6',
+                                color: '#fff',
+                                border: 'none',
+                                padding: '0.4rem 0.8rem',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Asignar Inspector
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
-            <button className="btn-primary" onClick={() => setIsCreateOpen(true)}>
-              + Nueva Solicitud
-            </button>
-          </div>
-        )}
-
-        {/* Tabla General */}
-        <div className="card">
-          <h3 style={{ marginBottom: '1rem' }}>Expedientes Registrados</h3>
-          {loading ? (
-            <p>Cargando datos...</p>
-          ) : requests.length === 0 ? (
-            <p style={{ color: '#64748b', fontSize: '0.9rem' }}>No hay solicitudes registradas aún.</p>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
-              <thead>
-                <tr style={{ borderBottom: '2px solid #e2e8f0', color: '#475569' }}>
-                  <th style={{ padding: '0.75rem' }}>ID</th>
-                  <th style={{ padding: '0.75rem' }}>Expediente</th>
-                  <th style={{ padding: '0.75rem' }}>Estado</th>
-                  <th style={{ padding: '0.75rem' }}>Vencimiento</th>
-                  <th style={{ padding: '0.75rem' }}>Documentos</th>
-                  <th style={{ padding: '0.75rem' }}>Movimientos</th>
-                  <th style={{ padding: '0.75rem' }}>Acciones Disponibles</th>
-                </tr>
-              </thead>
-              <tbody>
-                {requests.map((req) => (
-                  <tr key={req.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                    <td style={{ padding: '0.75rem' }}>#{req.id}</td>
-                    <td style={{ padding: '0.75rem' }}>{req.title}</td>
-                    <td style={{ padding: '0.75rem' }}>
-                      <span className={`badge badge-${req.status?.toLowerCase() || 'pendiente'}`}>
-                        {req.status || 'PENDIENTE'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '0.75rem' }}>
-                      {req.dueAt ? (
-                        <>
-                          {formatDueDate(req.dueAt)}
-                          {isOverdue(req.dueAt) && <span className="deadline-list-alert">Vencido</span>}
-                        </>
-                      ) : 'Sin fecha'}
-                    </td>
-                    <td style={{ padding: '0.75rem' }}>{req.documents?.length ?? 0}</td>
-                    <td style={{ padding: '0.75rem' }}>{req.history?.length ?? 0}</td>
-                    <td style={{ padding: '0.75rem', display: 'flex', gap: '0.4rem' }}>
-                      <button
-                        onClick={() => setSelectedDetailId(req.id)}
-                        className="request-detail-button"
-                      >
-                        Ver detalle
-                      </button>
-                      {/* Acciones por rol */}
-                      {user?.role === Role.ADMINISTRADO && (
-                        <button
-                          onClick={() => setSelectedPaymentId(req.id)}
-                          style={{ background: '#10b981', color: '#fff', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '4px', cursor: 'pointer' }}
-                        >
-                          Registrar Pago
-                        </button>
-                      )}
-
-                      {user?.role === Role.FUNCIONARIO && (
-                        <button
-                          onClick={() => setSelectedReviewId(req.id)}
-                          style={{ background: '#0284c7', color: '#fff', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '4px', cursor: 'pointer' }}
-                        >
-                          Revisar documentos
-                        </button>
-                      )}
-
-                      {user?.role === Role.FUNCIONARIO && (
-                        <button
-                          onClick={() => setSelectedAssignId(req.id)}
-                          style={{ background: '#8b5cf6', color: '#fff', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '4px', cursor: 'pointer' }}
-                        >
-                          Asignar Inspector
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
           </>
         )}
       </main>
 
       {/* Modales Interactivos */}
-      <CreateRequestModal
-        isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        onSuccess={fetchRequests}
-      />
+      {isCreateOpen && (
+        <CreateRequestModal
+          key={selectedDraft?.id ?? 'new'}
+          isOpen={isCreateOpen}
+          draft={selectedDraft}
+          onClose={() => {
+            setIsCreateOpen(false);
+            setSelectedDraft(null);
+          }}
+          onSuccess={refreshAdministradoData}
+        />
+      )}
       <PaymentModal
         requestId={selectedPaymentId}
         isOpen={!!selectedPaymentId}
