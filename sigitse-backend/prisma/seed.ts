@@ -1,5 +1,9 @@
 import { PrismaClient } from '@prisma/client';
-import { calculateDueDate, dateOnlyUtc, limaDate } from '../src/itse/business-calendar';
+import {
+  calculateDueDate,
+  dateOnlyUtc,
+  limaDate,
+} from '../src/itse/business-calendar';
 
 const prisma = new PrismaClient();
 const calendarScope = 'LIMA';
@@ -23,7 +27,9 @@ function easterSunday(year: number): Date {
 }
 
 function dateOnly(date: Date): Date {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
 }
 
 function peruHolidays(year: number) {
@@ -61,11 +67,13 @@ function peruHolidays(year: number) {
 }
 
 async function main() {
-  const requests = await prisma.itseRequest.findMany({
-    select: { id: true, startedAt: true },
-  });
-  const requestYears = requests.map(
-    ({ startedAt }) => Number(limaDate(startedAt).slice(0, 4)),
+  const requests = (
+    await prisma.itseRequest.findMany({
+      select: { id: true, startedAt: true },
+    })
+  ).filter((request) => request.startedAt !== null);
+  const requestYears = requests.flatMap(({ startedAt }) =>
+    startedAt ? [Number(limaDate(startedAt).slice(0, 4))] : [],
   );
   const firstYear = Math.min(2025, ...requestYears);
   const lastYear = Math.max(
@@ -87,6 +95,7 @@ async function main() {
   });
 
   for (const request of requests) {
+    if (!request.startedAt) continue;
     const startDate = new Date(`${limaDate(request.startedAt)}T00:00:00.000Z`);
     const holidayEnd = new Date(startDate);
     holidayEnd.setUTCDate(holidayEnd.getUTCDate() + 60);
@@ -99,7 +108,9 @@ async function main() {
     });
     const dueAt = calculateDueDate(
       request.startedAt,
-      new Set(requestHolidays.map(({ date }) => date.toISOString().slice(0, 10))),
+      new Set(
+        requestHolidays.map(({ date }) => date.toISOString().slice(0, 10)),
+      ),
     );
     await prisma.itseRequest.update({
       where: { id: request.id },

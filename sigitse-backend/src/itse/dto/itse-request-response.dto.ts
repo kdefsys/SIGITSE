@@ -69,8 +69,15 @@ export interface ItseRequestResponseDto {
   status: ItseRequestResponseRecord['status'];
   createdAt: Date;
   updatedAt: Date;
-  startedAt: Date;
-  dueAt: Date;
+  startedAt: Date | null;
+  dueAt: Date | null;
+  applicantName: string | null;
+  applicantDocumentType: string | null;
+  applicantDocumentNumber: string | null;
+  applicantEmail: string | null;
+  applicantPhone: string | null;
+  establishmentAddress: string | null;
+  establishmentDistrict: string | null;
   inspectorId: number | null;
   user: ItseRequestPersonDto;
   inspector: ItseRequestPersonDto | null;
@@ -91,6 +98,13 @@ export function toItseRequestResponseDto(
     updatedAt: request.updatedAt,
     startedAt: request.startedAt,
     dueAt: request.dueAt,
+    applicantName: request.applicantName,
+    applicantDocumentType: request.applicantDocumentType,
+    applicantDocumentNumber: request.applicantDocumentNumber,
+    applicantEmail: request.applicantEmail,
+    applicantPhone: request.applicantPhone,
+    establishmentAddress: request.establishmentAddress,
+    establishmentDistrict: request.establishmentDistrict,
     inspectorId: request.inspectorId,
     user: request.user,
     inspector: request.inspector,

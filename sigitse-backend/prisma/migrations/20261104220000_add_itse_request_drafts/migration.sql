@@ -1,0 +1,12 @@
+ALTER TYPE "RequestStatus" ADD VALUE IF NOT EXISTS 'BORRADOR';
+
+ALTER TABLE "ItseRequest"
+ALTER COLUMN "startedAt" DROP NOT NULL,
+ALTER COLUMN "dueAt" DROP NOT NULL,
+ADD COLUMN IF NOT EXISTS "applicantName" TEXT,
+ADD COLUMN IF NOT EXISTS "applicantDocumentType" TEXT,
+ADD COLUMN IF NOT EXISTS "applicantDocumentNumber" TEXT,
+ADD COLUMN IF NOT EXISTS "applicantEmail" TEXT,
+ADD COLUMN IF NOT EXISTS "applicantPhone" TEXT,
+ADD COLUMN IF NOT EXISTS "establishmentAddress" TEXT,
+ADD COLUMN IF NOT EXISTS "establishmentDistrict" TEXT;

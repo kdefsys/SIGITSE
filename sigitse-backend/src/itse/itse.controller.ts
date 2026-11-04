@@ -28,6 +28,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { AssignInspectorDto } from './dto/assign-inspector.dto';
+import { SaveItseDraftDto } from './dto/save-itse-draft.dto';
 import type { Request } from 'express';
 import { ItseRequestAccessGuard } from './guards/itse-request-access.guard';
 
@@ -84,6 +85,41 @@ export class ItseController {
     @Req() req: AuthenticatedRequest,
   ) {
     return this.itseService.create(createItseRequestDto, req.user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMINISTRADO')
+  @Post('drafts')
+  createDraft(@Body() dto: SaveItseDraftDto, @Req() req: AuthenticatedRequest) {
+    return this.itseService.createDraft(dto, req.user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMINISTRADO')
+  @Patch(':id/draft')
+  updateDraft(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: SaveItseDraftDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.itseService.updateDraft(id, req.user.userId, dto);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMINISTRADO')
+  @Post(':id/submit')
+  submitDraft(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.itseService.submitDraft(id, req.user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMINISTRADO')
+  @Get('drafts')
+  listDrafts(@Req() req: AuthenticatedRequest) {
+    return this.itseService.listDrafts(req.user.userId);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

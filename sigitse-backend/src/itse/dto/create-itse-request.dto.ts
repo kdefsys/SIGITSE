@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
 
 export class CreateItseRequestDto {
   @IsString()
@@ -8,4 +8,31 @@ export class CreateItseRequestDto {
   @IsString()
   @IsNotEmpty()
   description: string;
+
+  @IsString()
+  @IsNotEmpty()
+  applicantName: string;
+
+  @IsString()
+  @IsNotEmpty()
+  applicantDocumentType: string;
+
+  @IsString()
+  @IsNotEmpty()
+  applicantDocumentNumber: string;
+
+  @IsEmail()
+  applicantEmail: string;
+
+  @IsString()
+  @IsNotEmpty()
+  applicantPhone: string;
+
+  @IsString()
+  @IsNotEmpty()
+  establishmentAddress: string;
+
+  @IsString()
+  @IsNotEmpty()
+  establishmentDistrict: string;
 }

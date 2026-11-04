@@ -16,6 +16,7 @@ describe('ItseService', () => {
     itseRequest: {
       create: jest.fn<() => Promise<unknown>>(),
       update: jest.fn<() => Promise<unknown>>(),
+      updateMany: jest.fn<() => Promise<unknown>>(),
     },
     itseRequestHistory: { create: jest.fn<() => Promise<unknown>>() },
     document: { create: jest.fn<() => Promise<unknown>>() },
@@ -58,7 +59,17 @@ describe('ItseService', () => {
   });
 
   it('creates a request using the authenticated user ID', async () => {
-    const dto = { title: 'Request', description: 'Details' };
+    const dto = {
+      title: 'Request',
+      description: 'Details',
+      applicantName: 'Maria Example',
+      applicantDocumentType: 'DNI',
+      applicantDocumentNumber: '12345678',
+      applicantEmail: 'maria@example.com',
+      applicantPhone: '999111222',
+      establishmentAddress: 'Av. Example 123',
+      establishmentDistrict: 'Lima',
+    };
     transactionMock.itseRequest.create.mockResolvedValue({
       id: 12,
       ...dto,
@@ -86,13 +97,153 @@ describe('ItseService', () => {
     });
   });
 
+  it('creates a draft without starting its deadline', async () => {
+    transactionMock.itseRequest.create.mockResolvedValue({
+      id: 21,
+      title: '',
+      description: '',
+      userId: 5,
+      status: 'BORRADOR',
+      startedAt: null,
+      dueAt: null,
+    });
+    transactionMock.itseRequestHistory.create.mockResolvedValue({});
+
+    await service.createDraft({}, 5);
+
+    expect(transactionMock.itseRequest.create).toHaveBeenCalledWith({
+      data: {
+        title: '',
+        description: '',
+        userId: 5,
+        status: 'BORRADOR',
+        startedAt: null,
+        dueAt: null,
+      },
+    });
+    expect(prismaMock.businessHoliday.findMany).not.toHaveBeenCalled();
+  });
+
+  it('lists only the authenticated administrado drafts', async () => {
+    prismaMock.itseRequest.findMany.mockResolvedValue([]);
+
+    await service.listDrafts(5);
+
+    expect(prismaMock.itseRequest.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 5, status: 'BORRADOR' },
+        orderBy: { updatedAt: 'desc' },
+      }),
+    );
+  });
+
+  it('updates only a draft owned by the authenticated administrado', async () => {
+    transactionMock.itseRequest.updateMany.mockResolvedValue({ count: 1 });
+    transactionMock.itseRequestHistory.create.mockResolvedValue({});
+
+    await service.updateDraft(21, 5, { title: 'Local editado' });
+
+    expect(transactionMock.itseRequest.updateMany).toHaveBeenCalledWith({
+      where: { id: 21, userId: 5, status: 'BORRADOR' },
+      data: { title: 'Local editado' },
+    });
+  });
+
+  it('does not allow presenting a draft without required information', async () => {
+    prismaMock.itseRequest.findFirst.mockResolvedValue({
+      id: 21,
+      title: '   ',
+      description: 'Descripción',
+    });
+
+    await expect(service.submitDraft(21, 5)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(prismaMock.businessHoliday.findMany).not.toHaveBeenCalled();
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('requires a valid applicant email before presenting a draft', async () => {
+    prismaMock.itseRequest.findFirst.mockResolvedValue({
+      id: 21,
+      title: 'Local',
+      description: 'Inspección',
+      applicantName: 'Maria Example',
+      applicantDocumentType: 'DNI',
+      applicantDocumentNumber: '12345678',
+      applicantEmail: 'not-an-email',
+      applicantPhone: '999111222',
+      establishmentAddress: 'Av. Example 123',
+      establishmentDistrict: 'Lima',
+    });
+
+    await expect(service.submitDraft(21, 5)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(prismaMock.businessHoliday.findMany).not.toHaveBeenCalled();
+  });
+
+  it('starts the nine-business-day deadline only when presenting a draft', async () => {
+    prismaMock.itseRequest.findFirst
+      .mockResolvedValueOnce({
+        id: 21,
+        title: 'Local',
+        description: 'Inspección',
+        applicantName: 'Maria Example',
+        applicantDocumentType: 'DNI',
+        applicantDocumentNumber: '12345678',
+        applicantEmail: 'maria@example.com',
+        applicantPhone: '999111222',
+        establishmentAddress: 'Av. Example 123',
+        establishmentDistrict: 'Lima',
+      })
+      .mockResolvedValueOnce({
+        id: 21,
+        title: 'Local',
+        description: 'Inspección',
+        status: 'PENDIENTE',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        startedAt: new Date(),
+        dueAt: new Date(),
+        inspectorId: null,
+        user: { id: 5, name: 'Owner', email: 'owner@example.com' },
+        inspector: null,
+        payment: null,
+        documents: [],
+        history: [],
+      });
+    transactionMock.itseRequest.updateMany.mockResolvedValue({ count: 1 });
+    transactionMock.itseRequestHistory.create.mockResolvedValue({});
+
+    await service.submitDraft(21, 5);
+
+    expect(transactionMock.itseRequest.updateMany).toHaveBeenCalledWith({
+      where: { id: 21, userId: 5, status: 'BORRADOR' },
+      data: expect.objectContaining({
+        status: 'PENDIENTE',
+        startedAt: expect.any(Date),
+        dueAt: expect.any(Date),
+      }),
+    });
+    expect(transactionMock.itseRequestHistory.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        fromStatus: 'BORRADOR',
+        toStatus: 'PENDIENTE',
+        action: 'SOLICITUD_PRESENTADA',
+      }),
+    });
+  });
+
   it('limits administrado list results to their own requests', async () => {
     prismaMock.itseRequest.findMany.mockResolvedValue([]);
 
     await service.findAll(5, Role.ADMINISTRADO);
 
     expect(prismaMock.itseRequest.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { userId: 5 } }),
+      expect.objectContaining({
+        where: { userId: 5, status: { not: 'BORRADOR' } },
+      }),
     );
   });
 
@@ -102,7 +253,19 @@ describe('ItseService', () => {
     await service.findAll(8, Role.INSPECTOR);
 
     expect(prismaMock.itseRequest.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { inspectorId: 8 } }),
+      expect.objectContaining({
+        where: { inspectorId: 8, status: { not: 'BORRADOR' } },
+      }),
+    );
+  });
+
+  it('keeps drafts out of the funcionario work queue', async () => {
+    prismaMock.itseRequest.findMany.mockResolvedValue([]);
+
+    await service.findAll(9, Role.FUNCIONARIO);
+
+    expect(prismaMock.itseRequest.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { status: { not: 'BORRADOR' } } }),
     );
   });
 
@@ -164,7 +327,13 @@ describe('ItseService', () => {
       await service.findOne(requestId, 8, Role.INSPECTOR);
 
       expect(prismaMock.itseRequest.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: requestId, inspectorId: 8 } }),
+        expect.objectContaining({
+          where: {
+            id: requestId,
+            inspectorId: 8,
+            status: { not: 'BORRADOR' },
+          },
+        }),
       );
     });
 
@@ -189,7 +358,12 @@ describe('ItseService', () => {
       await service.findOne(requestId, 99, Role.FUNCIONARIO);
 
       expect(prismaMock.itseRequest.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: requestId } }),
+        expect.objectContaining({
+          where: {
+            id: requestId,
+            status: { not: 'BORRADOR' },
+          },
+        }),
       );
     });
 
@@ -211,7 +385,13 @@ describe('ItseService', () => {
         service.findOne(requestId, 9, Role.INSPECTOR),
       ).rejects.toBeInstanceOf(NotFoundException);
       expect(prismaMock.itseRequest.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: requestId, inspectorId: 9 } }),
+        expect.objectContaining({
+          where: {
+            id: requestId,
+            inspectorId: 9,
+            status: { not: 'BORRADOR' },
+          },
+        }),
       );
     });
   });
