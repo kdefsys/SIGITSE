@@ -1,4 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Role } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 import {
   calculateDueDate,
   dateOnlyUtc,
@@ -117,11 +118,35 @@ async function main() {
       data: { dueAt },
     });
   }
+
+  const database = new URL(process.env.DATABASE_URL ?? '');
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    ['localhost', '127.0.0.1', '[::1]'].includes(database.hostname)
+  ) {
+    const password = await bcrypt.hash('123456', 10);
+    for (const role of [
+      Role.ADMIN,
+      Role.FUNCIONARIO,
+      Role.INSPECTOR,
+      Role.ADMINISTRADO,
+    ]) {
+      const name = role.toLowerCase();
+      const email = `${name}@example.com`;
+      await prisma.user.upsert({
+        where: { email },
+        update: {},
+        create: { name, email, password, role },
+      });
+    }
+    console.log('Cuentas de prueba disponibles.');
+  }
+  console.log('Feriados cargados.');
 }
 
 main()
   .catch((error: unknown) => {
-    console.error('No se pudo cargar el calendario feriado de Lima.', error);
+    console.error('No se pudo completar el seed.', error);
     process.exitCode = 1;
   })
   .finally(async () => {
