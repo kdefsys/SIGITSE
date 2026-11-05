@@ -76,6 +76,7 @@ export interface ItseRequestResponseDto {
   applicantDocumentNumber: string | null;
   applicantEmail: string | null;
   applicantPhone: string | null;
+  applicantPhoneCountry: string | null;
   establishmentAddress: string | null;
   establishmentDistrict: string | null;
   inspectorId: number | null;
@@ -103,6 +104,7 @@ export function toItseRequestResponseDto(
     applicantDocumentNumber: request.applicantDocumentNumber,
     applicantEmail: request.applicantEmail,
     applicantPhone: request.applicantPhone,
+    applicantPhoneCountry: request.applicantPhoneCountry,
     establishmentAddress: request.establishmentAddress,
     establishmentDistrict: request.establishmentDistrict,
     inspectorId: request.inspectorId,

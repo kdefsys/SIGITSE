@@ -12,6 +12,7 @@ const complete = {
   applicantDocumentNumber: '00123456',
   applicantEmail: 'maria@example.com',
   applicantPhone: '+51999111222',
+  applicantPhoneCountry: 'PE',
   establishmentAddress: 'Av. Ejemplo 123',
   establishmentDistrict: 'San Miguel',
 };
@@ -40,6 +41,74 @@ describe('Request fields', () => {
     ).not.toThrow();
   });
 
+  it.each([
+    ['PE', '999111222', '+51999111222'],
+    ['US', '(202) 555-0123', '+12025550123'],
+    ['CA', '4165550123', '+14165550123'],
+  ])(
+    'validates and formats a national number from %s',
+    (country, number, expected) => {
+      const values = normalizeRequestFields({
+        ...complete,
+        applicantPhoneCountry: country,
+        applicantPhone: number,
+      });
+      expect(values.applicantPhone).toBe(expected);
+      expect(values.applicantPhoneCountry).toBe(country);
+      expect(() => validateRequestFields(values, true)).not.toThrow();
+    },
+  );
+
+  it.each([
+    ['PE', '99911122'],
+    ['PE', '+12025550123'],
+    ['CA', '+12025550123'],
+    ['US', '+14165550123'],
+    ['PE', '+51999111222 ext. 123'],
+    ['PE', 'llamar al +51999111222'],
+  ])(
+    'rejects a phone incompatible with %s without extracting or discarding data',
+    (country, number) => {
+      const values = normalizeRequestFields({
+        ...complete,
+        applicantPhoneCountry: country,
+        applicantPhone: number,
+      });
+      expect(() => validateRequestFields(values, true)).toThrow(
+        BadRequestException,
+      );
+    },
+  );
+
+  it('infers the country for an existing international phone without a stored country', () => {
+    const values = normalizeRequestFields({ applicantPhone: '+12025550123' });
+    expect(values).toEqual({
+      applicantPhone: '+12025550123',
+      applicantPhoneCountry: 'US',
+    });
+  });
+
+  it('keeps the selected country when saving an incomplete draft', () => {
+    const values = normalizeRequestFields({
+      applicantPhone: '',
+      applicantPhoneCountry: 'CA',
+    });
+    expect(values).toEqual({ applicantPhone: '', applicantPhoneCountry: 'CA' });
+    expect(() => validateRequestFields(values, false)).not.toThrow();
+  });
+
+  it('preserves a different district in a draft and rejects it on submission', () => {
+    const values = normalizeRequestFields({
+      ...complete,
+      establishmentDistrict: 'Miraflores',
+    });
+    expect(values.establishmentDistrict).toBe('Miraflores');
+    expect(() => validateRequestFields(values, false)).not.toThrow();
+    expect(() => validateRequestFields(values, true)).toThrow(
+      BadRequestException,
+    );
+  });
+
   it('allows an alphanumeric CE without applying the DNI length rule', () => {
     expect(() =>
       validateRequestFields(
@@ -62,6 +131,8 @@ describe('Request fields', () => {
     ['applicantPhone', '999ABC222'],
     ['applicantPhone', '123456'],
     ['applicantPhone', '+1234567890123456'],
+    ['applicantPhoneCountry', 'ZZ'],
+    ['establishmentDistrict', 'Miraflores'],
     ['applicantName', '   '],
     ['title', 'a'.repeat(201)],
   ])('rejects invalid %s with an error for that field', (field, value) => {

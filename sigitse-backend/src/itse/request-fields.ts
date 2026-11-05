@@ -1,5 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
 import { isEmail } from 'class-validator';
+import {
+  isSupportedCountry,
+  parsePhoneNumberFromString,
+} from 'libphonenumber-js/max';
 import { SaveItseDraftDto } from './dto/save-itse-draft.dto';
 
 const FIELD_LIMITS = {
@@ -10,6 +14,7 @@ const FIELD_LIMITS = {
   applicantDocumentNumber: 20,
   applicantEmail: 254,
   applicantPhone: 16,
+  applicantPhoneCountry: 2,
   establishmentAddress: 300,
   establishmentDistrict: 100,
 } as const;
@@ -34,11 +39,35 @@ export function normalizeRequestFields<T extends RequestFields>(fields: T): T {
     normalized.applicantDocumentNumber =
       normalized.applicantDocumentNumber.toUpperCase();
   }
-  if (normalized.applicantPhone != null) {
+  if (normalized.applicantPhoneCountry != null) {
+    normalized.applicantPhoneCountry =
+      normalized.applicantPhoneCountry.toUpperCase();
+  }
+  if (normalized.applicantPhone) {
     normalized.applicantPhone = normalized.applicantPhone.replace(
       /[\s()-]/g,
       '',
     );
+    if (!normalized.applicantPhoneCountry) {
+      const inferred = parsePhoneNumberFromString(normalized.applicantPhone, {
+        defaultCountry: 'PE',
+        extract: false,
+      });
+      normalized.applicantPhoneCountry = inferred?.country ?? 'PE';
+    }
+    const country = normalized.applicantPhoneCountry;
+    if (isSupportedCountry(country)) {
+      const phone = parsePhoneNumberFromString(normalized.applicantPhone, {
+        defaultCountry: country,
+        extract: false,
+      });
+      if (phone?.isValid() && phone.country === country && !phone.ext) {
+        normalized.applicantPhone = phone.number;
+      }
+    }
+  }
+  if (normalized.establishmentDistrict?.toLowerCase() === 'san miguel') {
+    normalized.establishmentDistrict = 'San Miguel';
   }
   return normalized;
 }
@@ -51,7 +80,8 @@ export function validateRequestFields(
   for (const [name, limit] of Object.entries(FIELD_LIMITS)) {
     const key = name as keyof SaveItseDraftDto;
     const value = fields[key];
-    if (complete && !value?.trim()) errors[key] = 'Completa este campo.';
+    if (complete && !value?.trim() && key !== 'applicantPhoneCountry')
+      errors[key] = 'Completa este campo.';
     if (value && value.length > limit)
       errors[key] = `Máximo ${limit} caracteres.`;
   }
@@ -80,12 +110,25 @@ export function validateRequestFields(
     if (fields.applicantEmail && !isEmail(fields.applicantEmail)) {
       errors.applicantEmail = 'Ingresa un correo electrónico válido.';
     }
+    const country = fields.applicantPhoneCountry || 'PE';
+    if (!isSupportedCountry(country)) {
+      errors.applicantPhoneCountry = 'Selecciona un país válido.';
+    } else if (fields.applicantPhone) {
+      const phone = parsePhoneNumberFromString(fields.applicantPhone, {
+        defaultCountry: country,
+        extract: false,
+      });
+      if (!phone?.isValid() || phone.country !== country || phone.ext) {
+        errors.applicantPhone =
+          'Ingresa un teléfono válido para el país seleccionado.';
+      }
+    }
     if (
-      fields.applicantPhone &&
-      !/^\+?[0-9]{7,15}$/.test(fields.applicantPhone)
+      fields.establishmentDistrict &&
+      fields.establishmentDistrict !== 'San Miguel'
     ) {
-      errors.applicantPhone =
-        'Ingresa entre 7 y 15 dígitos, con + internacional opcional.';
+      errors.establishmentDistrict =
+        'Solo se admiten establecimientos de San Miguel, Lima.';
     }
   }
   if (Object.keys(errors).length) {

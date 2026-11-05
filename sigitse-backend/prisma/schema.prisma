@@ -53,6 +53,7 @@ model ItseRequest {
   applicantDocumentNumber String?
   applicantEmail          String?
   applicantPhone          String?
+  applicantPhoneCountry   String?              @db.VarChar(2)
   establishmentAddress    String?
   establishmentDistrict   String?
   documents               Document[]

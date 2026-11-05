@@ -75,6 +75,7 @@ export interface ItseRequest {
   applicantDocumentNumber: string | null;
   applicantEmail: string | null;
   applicantPhone: string | null;
+  applicantPhoneCountry: string | null;
   establishmentAddress: string | null;
   establishmentDistrict: string | null;
   description?: string;

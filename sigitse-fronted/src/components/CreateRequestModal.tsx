@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { getCountries, getCountryCallingCode, isSupportedCountry, parsePhoneNumberFromString } from 'libphonenumber-js/max';
 import api from '../api/axios';
 import type { ItseRequest } from '../types';
 
@@ -11,6 +12,7 @@ interface DraftFields {
   applicantDocumentNumber: string;
   applicantEmail: string;
   applicantPhone: string;
+  applicantPhoneCountry: string;
   establishmentAddress: string;
   establishmentDistrict: string;
 }
@@ -26,9 +28,15 @@ const fieldLimits: Record<FieldName, number> = {
   applicantDocumentNumber: 20,
   applicantEmail: 254,
   applicantPhone: 16,
+  applicantPhoneCountry: 2,
   establishmentAddress: 300,
   establishmentDistrict: 100,
 };
+
+const regionNames = new Intl.DisplayNames(['es'], { type: 'region' });
+const phoneCountries = getCountries()
+  .map((code) => ({ code, name: regionNames.of(code) ?? code, prefix: `+${getCountryCallingCode(code)}` }))
+  .sort((a, b) => a.code === 'PE' ? -1 : b.code === 'PE' ? 1 : a.name.localeCompare(b.name, 'es'));
 
 interface Props {
   isOpen: boolean;
@@ -38,17 +46,26 @@ interface Props {
 }
 
 export const CreateRequestModal: React.FC<Props> = ({ isOpen, draft, onClose, onSuccess }) => {
-  const [fields, setFields] = useState<DraftFields>(() => ({
+  const [fields, setFields] = useState<DraftFields>(() => {
+    const storedPhone = draft?.applicantPhone ?? '';
+    const parsedPhone = parsePhoneNumberFromString(storedPhone, { defaultCountry: 'PE', extract: false });
+    const country = draft?.applicantPhoneCountry || parsedPhone?.country || 'PE';
+    const prefix = isSupportedCountry(country) ? `+${getCountryCallingCode(country)}` : '';
+    return {
     title: draft?.title ?? '',
     description: draft?.description ?? '',
     applicantName: draft?.applicantName ?? '',
     applicantDocumentType: draft?.applicantDocumentType ?? '',
     applicantDocumentNumber: draft?.applicantDocumentNumber ?? '',
     applicantEmail: draft?.applicantEmail ?? '',
-    applicantPhone: draft?.applicantPhone ?? '',
+    applicantPhone: parsedPhone?.country === country && !parsedPhone.ext
+      ? parsedPhone.nationalNumber
+      : prefix && storedPhone.startsWith(prefix) ? storedPhone.slice(prefix.length) : storedPhone,
+    applicantPhoneCountry: country,
     establishmentAddress: draft?.establishmentAddress ?? '',
-    establishmentDistrict: draft?.establishmentDistrict ?? '',
-  }));
+    establishmentDistrict: draft ? draft.establishmentDistrict ?? '' : 'San Miguel',
+    };
+  });
   const [savedDraftId, setSavedDraftId] = useState(draft?.id);
   const [file, setFile] = useState<File | null>(null);
   const [documentUploaded, setDocumentUploaded] = useState(false);
@@ -65,6 +82,7 @@ export const CreateRequestModal: React.FC<Props> = ({ isOpen, draft, onClose, on
       ...current,
       [name]: undefined,
       ...(name === 'applicantDocumentType' ? { applicantDocumentNumber: undefined } : {}),
+      ...(name === 'applicantPhoneCountry' ? { applicantPhone: undefined } : {}),
     }));
   };
 
@@ -78,6 +96,17 @@ export const CreateRequestModal: React.FC<Props> = ({ isOpen, draft, onClose, on
     values.applicantDocumentType = values.applicantDocumentType.toUpperCase();
     values.applicantDocumentNumber = values.applicantDocumentNumber.toUpperCase();
     values.applicantPhone = values.applicantPhone.replace(/[\s()-]/g, '');
+    const country = values.applicantPhoneCountry;
+    const phone = isSupportedCountry(country)
+      ? parsePhoneNumberFromString(values.applicantPhone, { defaultCountry: country, extract: false })
+      : undefined;
+    const validPhone = phone?.isValid() && phone.country === country && !phone.ext;
+    if (values.applicantPhone) {
+      if (validPhone && phone) values.applicantPhone = phone.number;
+      else if (isSupportedCountry(country) && !values.applicantPhone.startsWith('+')) {
+        values.applicantPhone = `+${getCountryCallingCode(country)}${values.applicantPhone}`;
+      }
+    }
     const errors: FieldErrors = {};
     for (const name of Object.keys(values) as FieldName[]) {
       if (values[name].length > fieldLimits[name]) errors[name] = `Máximo ${fieldLimits[name]} caracteres.`;
@@ -100,9 +129,11 @@ export const CreateRequestModal: React.FC<Props> = ({ isOpen, draft, onClose, on
       if (values.applicantEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.applicantEmail)) {
         errors.applicantEmail = 'Ingresa un correo electrónico válido.';
       }
-      if (values.applicantPhone && !/^\+?[0-9]{7,15}$/.test(values.applicantPhone)) {
-        errors.applicantPhone = 'Ingresa entre 7 y 15 dígitos, con + internacional opcional.';
+      if (!isSupportedCountry(country)) errors.applicantPhoneCountry = 'Selecciona un país válido.';
+      if (values.applicantPhone && !validPhone) {
+        errors.applicantPhone = 'Ingresa un teléfono válido para el país seleccionado.';
       }
+      if (values.establishmentDistrict !== 'San Miguel') errors.establishmentDistrict = 'Confirma que el establecimiento está en San Miguel, Lima.';
     }
     setFieldErrors(errors);
     const firstError = Object.keys(errors)[0];
@@ -166,9 +197,14 @@ export const CreateRequestModal: React.FC<Props> = ({ isOpen, draft, onClose, on
       style: { ...inputStyle, border: fieldErrors[name] ? '1px solid #dc2626' : inputStyle.border },
     };
     return (
-      <div style={{ marginBottom: '1rem', flex: 1 }}>
+      <div style={{ marginBottom: '1rem', flex: 1, minWidth: 0 }}>
         <label htmlFor={props.id} style={labelStyle}>{label} <span aria-hidden="true" style={{ color: '#dc2626' }}>*</span></label>
-        {name === 'applicantDocumentType'
+        {name === 'applicantPhoneCountry'
+          ? <select {...props}>
+              {!isSupportedCountry(fields.applicantPhoneCountry) && <option value={fields.applicantPhoneCountry}>Selecciona un país</option>}
+              {phoneCountries.map(({ code, name: countryName, prefix }) => <option key={code} value={code}>{countryName} ({prefix})</option>)}
+            </select>
+          : name === 'applicantDocumentType'
           ? <select {...props}>
               <option value="">Selecciona una opción</option>
               <option value="DNI">DNI</option>
@@ -203,10 +239,24 @@ export const CreateRequestModal: React.FC<Props> = ({ isOpen, draft, onClose, on
               {field('applicantDocumentNumber', 'Número de documento')}
             </div>
             {field('applicantEmail', 'Correo electrónico', 'email')}
-            {field('applicantPhone', 'Teléfono', 'tel')}
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              {field('applicantPhoneCountry', 'País del teléfono')}
+              {field('applicantPhone', 'Número de teléfono', 'tel')}
+            </div>
             <h4>Datos del establecimiento</h4>
             {field('establishmentAddress', 'Dirección')}
-            {field('establishmentDistrict', 'Distrito')}
+            <div style={{ marginBottom: '1rem' }}>
+              <p style={labelStyle}>Ubicación del establecimiento</p>
+              <p>San Miguel, Lima, Lima</p>
+              {fields.establishmentDistrict !== 'San Miguel' && <div>
+                <p>Este borrador indica: {fields.establishmentDistrict || 'distrito sin completar'}. Confirma la ubicación antes de presentar.</p>
+                <button id="request-establishmentDistrict" type="button" style={btnSecondaryStyle}
+                  aria-invalid={Boolean(fieldErrors.establishmentDistrict)}
+                  aria-describedby={fieldErrors.establishmentDistrict ? 'request-establishmentDistrict-error' : undefined}
+                  onClick={() => changeField('establishmentDistrict', 'San Miguel')}>Confirmar San Miguel</button>
+                {fieldErrors.establishmentDistrict && <p id="request-establishmentDistrict-error" role="alert" style={{ color: '#b91c1c' }}>{fieldErrors.establishmentDistrict}</p>}
+              </div>}
+            </div>
             <div style={{ marginBottom: '1.5rem' }}>
               <label htmlFor="request-file" style={labelStyle}>Adjuntar documento (PDF / Imagen)</label>
               <input id="request-file" type="file" accept=".pdf,.png,.jpg,.jpeg"

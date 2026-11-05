@@ -66,9 +66,10 @@ describe('ItseService', () => {
       applicantDocumentType: 'DNI',
       applicantDocumentNumber: '12345678',
       applicantEmail: 'maria@example.com',
-      applicantPhone: '999111222',
+      applicantPhone: '+51999111222',
+      applicantPhoneCountry: 'PE',
       establishmentAddress: 'Av. Example 123',
-      establishmentDistrict: 'Lima',
+      establishmentDistrict: 'San Miguel',
     };
     transactionMock.itseRequest.create.mockResolvedValue({
       id: 12,
@@ -172,9 +173,10 @@ describe('ItseService', () => {
       applicantDocumentType: 'DNI',
       applicantDocumentNumber: '12345678',
       applicantEmail: 'not-an-email',
-      applicantPhone: '999111222',
+      applicantPhone: '+51999111222',
+      applicantPhoneCountry: 'PE',
       establishmentAddress: 'Av. Example 123',
-      establishmentDistrict: 'Lima',
+      establishmentDistrict: 'San Miguel',
     });
 
     await expect(service.submitDraft(21, 5)).rejects.toBeInstanceOf(
@@ -193,9 +195,10 @@ describe('ItseService', () => {
         applicantDocumentType: 'DNI',
         applicantDocumentNumber: '12345678',
         applicantEmail: 'maria@example.com',
-        applicantPhone: '999111222',
+        applicantPhone: '+51999111222',
+        applicantPhoneCountry: 'PE',
         establishmentAddress: 'Av. Example 123',
-        establishmentDistrict: 'Lima',
+        establishmentDistrict: 'San Miguel',
       })
       .mockResolvedValueOnce({
         id: 21,

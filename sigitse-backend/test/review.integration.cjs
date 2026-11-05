@@ -104,7 +104,8 @@ test('review reasons survive HTTP reload and subsequent approval; invalid writes
       applicantDocumentType: 'DNI',
       applicantDocumentNumber: '87654321',
       applicantEmail: 'initial@example.test',
-      applicantPhone: '999222333',
+      applicantPhone: '+51999222333',
+      applicantPhoneCountry: 'PE',
       establishmentAddress: 'Av. Initial 456',
       establishmentDistrict: 'San Miguel',
     };
@@ -128,10 +129,29 @@ test('review reasons survive HTTP reload and subsequent approval; invalid writes
       .auth(owner, { type: 'bearer' })
       .expect(200);
     assert.ok(drafts.body.some((x) => x.id === caseId));
+    await api
+      .patch(`/itse/${caseId}/draft`)
+      .auth(owner, { type: 'bearer' })
+      .send({ applicantPhone: '', applicantPhoneCountry: 'CA' })
+      .expect(200);
+    const incompletePhone = await api.get(`/itse/${caseId}`).auth(owner, { type: 'bearer' }).expect(200);
+    assert.equal(incompletePhone.body.applicantPhone, '');
+    assert.equal(incompletePhone.body.applicantPhoneCountry, 'CA');
+    await api
+      .patch(`/itse/${caseId}/draft`)
+      .auth(owner, { type: 'bearer' })
+      .send({ applicantPhone: '2025550123', applicantPhoneCountry: 'US' })
+      .expect(200);
+    const internationalPhone = await api.get(`/itse/${caseId}`).auth(owner, { type: 'bearer' }).expect(200);
+    assert.equal(internationalPhone.body.applicantPhone, '+12025550123');
+    assert.equal(internationalPhone.body.applicantPhoneCountry, 'US');
     for (const invalid of [
       { applicantDocumentType: 'RUC' },
       { applicantDocumentNumber: '123' },
       { applicantPhone: 'invalid' },
+      { applicantPhone: '+12025550123', applicantPhoneCountry: 'PE' },
+      { applicantPhoneCountry: 'ZZ' },
+      { establishmentDistrict: 'Miraflores' },
     ]) {
       const field = Object.keys(invalid)[0];
       const rejected = await api
@@ -165,7 +185,7 @@ test('review reasons survive HTTP reload and subsequent approval; invalid writes
         applicantEmail: '  SYNTHETIC@EXAMPLE.TEST  ',
         applicantPhone: ' +51 (999) 111-222 ',
         establishmentAddress: 'Av. Test 123',
-        establishmentDistrict: 'Lima',
+        establishmentDistrict: 'San Miguel',
       })
       .expect(200);
     await api
@@ -182,6 +202,7 @@ test('review reasons survive HTTP reload and subsequent approval; invalid writes
     assert.equal(submitted.body.applicantDocumentNumber, '00123456');
     assert.equal(submitted.body.applicantEmail, 'synthetic@example.test');
     assert.equal(submitted.body.applicantPhone, '+51999111222');
+    assert.equal(submitted.body.applicantPhoneCountry, 'PE');
     assert.ok(submitted.body.startedAt);
     assert.ok(submitted.body.dueAt);
     await api.get('/itse').auth(admin, { type: 'bearer' }).expect(403);

@@ -43,6 +43,7 @@ export class ItseService {
           applicantDocumentNumber: dto.applicantDocumentNumber,
           applicantEmail: dto.applicantEmail,
           applicantPhone: dto.applicantPhone,
+          applicantPhoneCountry: dto.applicantPhoneCountry,
           establishmentAddress: dto.establishmentAddress,
           establishmentDistrict: dto.establishmentDistrict,
           userId,
@@ -99,6 +100,9 @@ export class ItseService {
           ...(dto.applicantPhone !== undefined
             ? { applicantPhone: dto.applicantPhone }
             : {}),
+          ...(dto.applicantPhoneCountry !== undefined
+            ? { applicantPhoneCountry: dto.applicantPhoneCountry }
+            : {}),
           ...(dto.establishmentAddress !== undefined
             ? { establishmentAddress: dto.establishmentAddress }
             : {}),
@@ -135,6 +139,7 @@ export class ItseService {
         applicantDocumentNumber: true,
         applicantEmail: true,
         applicantPhone: true,
+        applicantPhoneCountry: true,
         establishmentAddress: true,
         establishmentDistrict: true,
       },
@@ -192,6 +197,7 @@ export class ItseService {
           applicantDocumentNumber: dto.applicantDocumentNumber,
           applicantEmail: dto.applicantEmail,
           applicantPhone: dto.applicantPhone,
+          applicantPhoneCountry: dto.applicantPhoneCountry,
           establishmentAddress: dto.establishmentAddress,
           establishmentDistrict: dto.establishmentDistrict,
           userId,
