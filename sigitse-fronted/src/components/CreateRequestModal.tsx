@@ -246,8 +246,24 @@ export const CreateRequestModal: React.FC<Props> = ({ isOpen, draft, onClose, on
             <h4>Datos del establecimiento</h4>
             {field('establishmentAddress', 'Dirección')}
             <div style={{ marginBottom: '1rem' }}>
-              <p style={labelStyle}>Ubicación del establecimiento</p>
-              <p>San Miguel, Lima, Lima</p>
+              <h4>Ubicación del establecimiento</h4>
+              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                {[
+                  ['department', 'Departamento', 'Lima'],
+                  ['province', 'Provincia', 'Lima'],
+                  ['district', 'Distrito', 'San Miguel'],
+                ].map(([id, label, value]) => (
+                  <div key={id} style={{ flex: 1, minWidth: '120px' }}>
+                    <label htmlFor={`request-location-${id}`} style={labelStyle}>{label}</label>
+                    <input id={`request-location-${id}`} value={value} readOnly
+                      aria-describedby="request-location-note"
+                      style={{ ...inputStyle, background: '#f1f5f9', color: '#475569' }} />
+                  </div>
+                ))}
+              </div>
+              <p id="request-location-note" style={{ color: '#64748b', fontSize: '0.85rem', marginTop: '0.5rem' }}>
+                Por ahora, solo atendemos establecimientos de San Miguel.
+              </p>
               {fields.establishmentDistrict !== 'San Miguel' && <div>
                 <p>Este borrador indica: {fields.establishmentDistrict || 'distrito sin completar'}. Confirma la ubicación antes de presentar.</p>
                 <button id="request-establishmentDistrict" type="button" style={btnSecondaryStyle}
