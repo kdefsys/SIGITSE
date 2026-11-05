@@ -17,6 +17,7 @@ import {
   itseRequestResponseInclude,
   toItseRequestResponseDto,
 } from './dto/itse-request-response.dto';
+import { ItseRequestStatusSubject } from './observers/itse-request-status.subject';
 
 const HISTORY_ACTION = {
   RECEIVED: 'SOLICITUD_RECIBIDA',
@@ -28,7 +29,10 @@ const HISTORY_ACTION = {
 
 @Injectable()
 export class ItseService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly requestStatusSubject: ItseRequestStatusSubject,
+  ) {}
 
   async createDraft(dto: SaveItseDraftDto, userId: number) {
     dto = normalizeRequestFields(dto);
@@ -349,20 +353,19 @@ export class ItseService {
         where: this.accessWhere(id, userId, role),
         data: { status: reviewDto.action },
       });
-      await transaction.itseRequestHistory.create({
-        data: {
-          requestId: id,
-          actorId: userId,
-          action: HISTORY_ACTION.STATUS_CHANGED,
-          description: [
-            `Estado actualizado de ${currentRequest.status} a ${request.status}.`,
-            observation ? `Observación: ${observation}` : null,
-          ]
-            .filter(Boolean)
-            .join(' '),
-          fromStatus: currentRequest.status,
-          toStatus: request.status,
-        },
+      await this.requestStatusSubject.notify({
+        transaction,
+        requestId: id,
+        actorId: userId,
+        action: HISTORY_ACTION.STATUS_CHANGED,
+        description: [
+          `Estado actualizado de ${currentRequest.status} a ${request.status}.`,
+          observation ? `Observación: ${observation}` : null,
+        ]
+          .filter(Boolean)
+          .join(' '),
+        fromStatus: currentRequest.status,
+        toStatus: request.status,
       });
       return request;
     });

@@ -9,6 +9,8 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
+import { ItseRequestHistoryObserver } from './observers/itse-request-history.observer';
+import { ItseRequestStatusSubject } from './observers/itse-request-status.subject';
 
 describe('ItseService', () => {
   let service: ItseService;
@@ -47,6 +49,13 @@ describe('ItseService', () => {
         {
           provide: PrismaService,
           useValue: prismaMock,
+        },
+        ItseRequestHistoryObserver,
+        {
+          provide: ItseRequestStatusSubject,
+          useFactory: (historyObserver: ItseRequestHistoryObserver) =>
+            new ItseRequestStatusSubject([historyObserver]),
+          inject: [ItseRequestHistoryObserver],
         },
       ],
     }).compile();
