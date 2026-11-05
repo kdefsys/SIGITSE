@@ -13,11 +13,38 @@ const complete = {
   applicantEmail: 'maria@example.com',
   applicantPhone: '+51999111222',
   applicantPhoneCountry: 'PE',
+  establishmentBusinessName: 'Comercio de prueba',
   establishmentAddress: 'Av. Ejemplo 123',
   establishmentDistrict: 'San Miguel',
 };
 
 describe('Request fields', () => {
+  it('allows submitting without a RUC when it does not apply', () => {
+    expect(() => validateRequestFields(complete, true)).not.toThrow();
+    expect(() =>
+      validateRequestFields({ ...complete, establishmentRuc: '' }, true),
+    ).not.toThrow();
+  });
+
+  it('trims the business name and preserves leading zeroes in the RUC', () => {
+    const fields = normalizeRequestFields({
+      ...complete,
+      establishmentBusinessName: '  María y José S.A.C.  ',
+      establishmentRuc: ' 00123456789 ',
+    });
+    expect(fields.establishmentBusinessName).toBe('María y José S.A.C.');
+    expect(fields.establishmentRuc).toBe('00123456789');
+    expect(() => validateRequestFields(fields, true)).not.toThrow();
+  });
+
+  it('allows a partial RUC in a draft but requires its full format on submission', () => {
+    const fields = { ...complete, establishmentRuc: '001' };
+    expect(() => validateRequestFields(fields, false)).not.toThrow();
+    expect(() => validateRequestFields(fields, true)).toThrow(
+      BadRequestException,
+    );
+  });
+
   it('normalizes contact data while preserving accents and leading zeroes', () => {
     const values = normalizeRequestFields({
       ...complete,
@@ -133,6 +160,11 @@ describe('Request fields', () => {
     ['applicantPhone', '+1234567890123456'],
     ['applicantPhoneCountry', 'ZZ'],
     ['establishmentDistrict', 'Miraflores'],
+    ['establishmentBusinessName', '   '],
+    ['establishmentBusinessName', 'a'.repeat(201)],
+    ['establishmentRuc', '1234567890'],
+    ['establishmentRuc', '123456789012'],
+    ['establishmentRuc', '1234567890A'],
     ['applicantName', '   '],
     ['title', 'a'.repeat(201)],
   ])('rejects invalid %s with an error for that field', (field, value) => {

@@ -44,6 +44,8 @@ export class ItseService {
           applicantEmail: dto.applicantEmail,
           applicantPhone: dto.applicantPhone,
           applicantPhoneCountry: dto.applicantPhoneCountry,
+          establishmentBusinessName: dto.establishmentBusinessName,
+          establishmentRuc: dto.establishmentRuc,
           establishmentAddress: dto.establishmentAddress,
           establishmentDistrict: dto.establishmentDistrict,
           userId,
@@ -103,6 +105,12 @@ export class ItseService {
           ...(dto.applicantPhoneCountry !== undefined
             ? { applicantPhoneCountry: dto.applicantPhoneCountry }
             : {}),
+          ...(dto.establishmentBusinessName !== undefined
+            ? { establishmentBusinessName: dto.establishmentBusinessName }
+            : {}),
+          ...(dto.establishmentRuc !== undefined
+            ? { establishmentRuc: dto.establishmentRuc }
+            : {}),
           ...(dto.establishmentAddress !== undefined
             ? { establishmentAddress: dto.establishmentAddress }
             : {}),
@@ -140,6 +148,8 @@ export class ItseService {
         applicantEmail: true,
         applicantPhone: true,
         applicantPhoneCountry: true,
+        establishmentBusinessName: true,
+        establishmentRuc: true,
         establishmentAddress: true,
         establishmentDistrict: true,
       },
@@ -198,6 +208,8 @@ export class ItseService {
           applicantEmail: dto.applicantEmail,
           applicantPhone: dto.applicantPhone,
           applicantPhoneCountry: dto.applicantPhoneCountry,
+          establishmentBusinessName: dto.establishmentBusinessName,
+          establishmentRuc: dto.establishmentRuc,
           establishmentAddress: dto.establishmentAddress,
           establishmentDistrict: dto.establishmentDistrict,
           userId,

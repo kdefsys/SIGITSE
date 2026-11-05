@@ -35,6 +35,14 @@ export class SaveItseDraftDto {
 
   @ValidateIf((_dto, value: unknown) => value !== undefined)
   @IsString()
+  establishmentBusinessName?: string;
+
+  @ValidateIf((_dto, value: unknown) => value !== undefined)
+  @IsString()
+  establishmentRuc?: string;
+
+  @ValidateIf((_dto, value: unknown) => value !== undefined)
+  @IsString()
   establishmentAddress?: string;
 
   @ValidateIf((_dto, value: unknown) => value !== undefined)

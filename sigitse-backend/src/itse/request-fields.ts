@@ -15,6 +15,8 @@ const FIELD_LIMITS = {
   applicantEmail: 254,
   applicantPhone: 16,
   applicantPhoneCountry: 2,
+  establishmentBusinessName: 200,
+  establishmentRuc: 11,
   establishmentAddress: 300,
   establishmentDistrict: 100,
 } as const;
@@ -80,12 +82,20 @@ export function validateRequestFields(
   for (const [name, limit] of Object.entries(FIELD_LIMITS)) {
     const key = name as keyof SaveItseDraftDto;
     const value = fields[key];
-    if (complete && !value?.trim() && key !== 'applicantPhoneCountry')
+    if (
+      complete &&
+      !value?.trim() &&
+      key !== 'applicantPhoneCountry' &&
+      key !== 'establishmentRuc'
+    )
       errors[key] = 'Completa este campo.';
     if (value && value.length > limit)
       errors[key] = `Máximo ${limit} caracteres.`;
   }
   if (complete) {
+    if (fields.establishmentRuc && !/^\d{11}$/.test(fields.establishmentRuc)) {
+      errors.establishmentRuc = 'El RUC debe tener 11 dígitos.';
+    }
     if (
       fields.applicantDocumentType &&
       !['DNI', 'CE'].includes(fields.applicantDocumentType)

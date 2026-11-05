@@ -13,6 +13,8 @@ interface DraftFields {
   applicantEmail: string;
   applicantPhone: string;
   applicantPhoneCountry: string;
+  establishmentBusinessName: string;
+  establishmentRuc: string;
   establishmentAddress: string;
   establishmentDistrict: string;
 }
@@ -29,6 +31,8 @@ const fieldLimits: Record<FieldName, number> = {
   applicantEmail: 254,
   applicantPhone: 16,
   applicantPhoneCountry: 2,
+  establishmentBusinessName: 200,
+  establishmentRuc: 11,
   establishmentAddress: 300,
   establishmentDistrict: 100,
 };
@@ -62,6 +66,8 @@ export const CreateRequestModal: React.FC<Props> = ({ isOpen, draft, onClose, on
       ? parsedPhone.nationalNumber
       : prefix && storedPhone.startsWith(prefix) ? storedPhone.slice(prefix.length) : storedPhone,
     applicantPhoneCountry: country,
+    establishmentBusinessName: draft?.establishmentBusinessName ?? '',
+    establishmentRuc: draft?.establishmentRuc ?? '',
     establishmentAddress: draft?.establishmentAddress ?? '',
     establishmentDistrict: draft ? draft.establishmentDistrict ?? '' : 'San Miguel',
     };
@@ -113,7 +119,10 @@ export const CreateRequestModal: React.FC<Props> = ({ isOpen, draft, onClose, on
     }
     if (present) {
       for (const name of Object.keys(values) as FieldName[]) {
-        if (!values[name]) errors[name] = 'Completa este campo.';
+        if (!values[name] && name !== 'establishmentRuc') errors[name] = 'Completa este campo.';
+      }
+      if (values.establishmentRuc && !/^\d{11}$/.test(values.establishmentRuc)) {
+        errors.establishmentRuc = 'El RUC debe tener 11 dígitos.';
       }
       if (values.applicantDocumentType && !['DNI', 'CE'].includes(values.applicantDocumentType)) {
         errors.applicantDocumentType = 'Selecciona DNI o carné de extranjería.';
@@ -190,7 +199,7 @@ export const CreateRequestModal: React.FC<Props> = ({ isOpen, draft, onClose, on
       id: `request-${name}`,
       name,
       value: fields[name],
-      required: true,
+      required: name !== 'establishmentRuc',
       'aria-invalid': Boolean(fieldErrors[name]),
       'aria-describedby': fieldErrors[name] ? `request-${name}-error` : undefined,
       onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => changeField(name, e.target.value),
@@ -198,7 +207,7 @@ export const CreateRequestModal: React.FC<Props> = ({ isOpen, draft, onClose, on
     };
     return (
       <div style={{ marginBottom: '1rem', flex: 1, minWidth: 0 }}>
-        <label htmlFor={props.id} style={labelStyle}>{label} <span aria-hidden="true" style={{ color: '#dc2626' }}>*</span></label>
+        <label htmlFor={props.id} style={labelStyle}>{label} {props.required && <span aria-hidden="true" style={{ color: '#dc2626' }}>*</span>}</label>
         {name === 'applicantPhoneCountry'
           ? <select {...props}>
               {!isSupportedCountry(fields.applicantPhoneCountry) && <option value={fields.applicantPhoneCountry}>Selecciona un país</option>}
@@ -212,7 +221,7 @@ export const CreateRequestModal: React.FC<Props> = ({ isOpen, draft, onClose, on
             </select>
           : name === 'description'
           ? <textarea {...props} placeholder={placeholder} style={{ ...props.style, minHeight: '90px', fontFamily: 'inherit' }} />
-          : <input {...props} type={type} placeholder={placeholder} />}
+          : <input {...props} type={type} inputMode={name === 'establishmentRuc' ? 'numeric' : undefined} placeholder={placeholder} />}
         {fieldErrors[name] && <p id={`request-${name}-error`} style={{ color: '#b91c1c', fontSize: '0.85rem', marginTop: '0.25rem' }}>{fieldErrors[name]}</p>}
       </div>
     );
@@ -244,6 +253,8 @@ export const CreateRequestModal: React.FC<Props> = ({ isOpen, draft, onClose, on
               {field('applicantPhone', 'Número de teléfono', 'tel')}
             </div>
             <h4>Datos del establecimiento</h4>
+            {field('establishmentBusinessName', 'Razón social o nombre del titular')}
+            {field('establishmentRuc', 'RUC (si corresponde)', 'text', '11 dígitos')}
             {field('establishmentAddress', 'Dirección')}
             <div style={{ marginBottom: '1rem' }}>
               <h4>Ubicación del establecimiento</h4>

@@ -38,6 +38,14 @@ export class CreateItseRequestDto {
 
   @IsString()
   @IsNotEmpty()
+  establishmentBusinessName: string;
+
+  @ValidateIf((_dto, value: unknown) => value !== undefined)
+  @IsString()
+  establishmentRuc?: string;
+
+  @IsString()
+  @IsNotEmpty()
   establishmentAddress: string;
 
   @IsString()

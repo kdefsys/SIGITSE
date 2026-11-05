@@ -38,29 +38,31 @@ model User {
 }
 
 model ItseRequest {
-  id                      Int                  @id @default(autoincrement())
-  title                   String
-  description             String
-  status                  RequestStatus        @default(PENDIENTE)
-  userId                  Int
-  user                    User                 @relation(fields: [userId], references: [id])
-  createdAt               DateTime             @default(now())
-  updatedAt               DateTime             @updatedAt
-  startedAt               DateTime?            @default(now())
-  dueAt                   DateTime?            @db.Date
-  applicantName           String?
-  applicantDocumentType   String?
-  applicantDocumentNumber String?
-  applicantEmail          String?
-  applicantPhone          String?
-  applicantPhoneCountry   String?              @db.VarChar(2)
-  establishmentAddress    String?
-  establishmentDistrict   String?
-  documents               Document[]
-  payment                 Payment?
-  history                 ItseRequestHistory[]
-  inspectorId             Int?
-  inspector               User?                @relation("InspectorRequests", fields: [inspectorId], references: [id])
+  id                        Int                  @id @default(autoincrement())
+  title                     String
+  description               String
+  status                    RequestStatus        @default(PENDIENTE)
+  userId                    Int
+  user                      User                 @relation(fields: [userId], references: [id])
+  createdAt                 DateTime             @default(now())
+  updatedAt                 DateTime             @updatedAt
+  startedAt                 DateTime?            @default(now())
+  dueAt                     DateTime?            @db.Date
+  applicantName             String?
+  applicantDocumentType     String?
+  applicantDocumentNumber   String?
+  applicantEmail            String?
+  applicantPhone            String?
+  applicantPhoneCountry     String?              @db.VarChar(2)
+  establishmentBusinessName String?
+  establishmentRuc          String?              @db.VarChar(11)
+  establishmentAddress      String?
+  establishmentDistrict     String?
+  documents                 Document[]
+  payment                   Payment?
+  history                   ItseRequestHistory[]
+  inspectorId               Int?
+  inspector                 User?                @relation("InspectorRequests", fields: [inspectorId], references: [id])
 }
 
 model Document {

@@ -180,6 +180,14 @@ export const RequestDetailModal: React.FC<Props> = ({ requestId, onClose }) => {
                   <dd>{request.applicantPhone ?? 'No registrado'}</dd>
                 </div>
                 <div>
+                  <dt>Razón social o titular</dt>
+                  <dd>{request.establishmentBusinessName || 'No registrado'}</dd>
+                </div>
+                <div>
+                  <dt>RUC</dt>
+                  <dd>{request.establishmentRuc || 'No registrado'}</dd>
+                </div>
+                <div>
                   <dt>Dirección del establecimiento</dt>
                   <dd>{request.establishmentAddress ?? 'No registrada'}</dd>
                 </div>

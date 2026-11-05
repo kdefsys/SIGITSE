@@ -68,6 +68,7 @@ describe('ItseService', () => {
       applicantEmail: 'maria@example.com',
       applicantPhone: '+51999111222',
       applicantPhoneCountry: 'PE',
+      establishmentBusinessName: 'Comercio de prueba',
       establishmentAddress: 'Av. Example 123',
       establishmentDistrict: 'San Miguel',
     };
@@ -175,6 +176,7 @@ describe('ItseService', () => {
       applicantEmail: 'not-an-email',
       applicantPhone: '+51999111222',
       applicantPhoneCountry: 'PE',
+      establishmentBusinessName: 'Comercio de prueba',
       establishmentAddress: 'Av. Example 123',
       establishmentDistrict: 'San Miguel',
     });
@@ -197,6 +199,7 @@ describe('ItseService', () => {
         applicantEmail: 'maria@example.com',
         applicantPhone: '+51999111222',
         applicantPhoneCountry: 'PE',
+        establishmentBusinessName: 'Comercio de prueba',
         establishmentAddress: 'Av. Example 123',
         establishmentDistrict: 'San Miguel',
       })
