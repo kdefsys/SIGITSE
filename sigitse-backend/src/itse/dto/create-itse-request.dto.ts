@@ -1,4 +1,5 @@
-import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, ValidateIf } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class CreateItseRequestDto {
   @IsString()
@@ -22,11 +23,26 @@ export class CreateItseRequestDto {
   applicantDocumentNumber: string;
 
   @IsEmail()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim().toLowerCase() : value,
+  )
   applicantEmail: string;
 
   @IsString()
   @IsNotEmpty()
   applicantPhone: string;
+
+  @ValidateIf((_dto, value: unknown) => value !== undefined)
+  @IsString()
+  applicantPhoneCountry?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  establishmentBusinessName: string;
+
+  @ValidateIf((_dto, value: unknown) => value !== undefined)
+  @IsString()
+  establishmentRuc?: string;
 
   @IsString()
   @IsNotEmpty()

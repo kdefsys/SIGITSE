@@ -97,14 +97,35 @@ test('review reasons survive HTTP reload and subsequent approval; invalid writes
         .send({ title: 'Forbidden', description: 'Forbidden' })
         .expect(403);
     }
+    const draftData = {
+      title: 'Regression test',
+      description: 'Synthetic data only',
+      applicantName: 'Initial Applicant',
+      applicantDocumentType: 'DNI',
+      applicantDocumentNumber: '87654321',
+      applicantEmail: 'initial@example.test',
+      applicantPhone: '+51999222333',
+      applicantPhoneCountry: 'PE',
+      establishmentBusinessName: 'Titular inicial',
+      establishmentRuc: '00123456789',
+      establishmentAddress: 'Av. Initial 456',
+      establishmentDistrict: 'San Miguel',
+    };
     const created = await api
       .post('/itse/drafts')
       .auth(owner, { type: 'bearer' })
-      .send({ title: 'Regression test', description: 'Synthetic data only' })
+      .send(draftData)
       .expect(201);
     caseId = created.body.id;
     assert.equal(created.body.status, 'BORRADOR');
     assert.equal(created.body.dueAt, null);
+    const reloaded = await api
+      .get(`/itse/${caseId}`)
+      .auth(owner, { type: 'bearer' })
+      .expect(200);
+    for (const [field, value] of Object.entries(draftData)) {
+      assert.equal(reloaded.body[field], value, `First save must retain ${field}`);
+    }
     const drafts = await api
       .get('/itse/drafts')
       .auth(owner, { type: 'bearer' })
@@ -113,14 +134,65 @@ test('review reasons survive HTTP reload and subsequent approval; invalid writes
     await api
       .patch(`/itse/${caseId}/draft`)
       .auth(owner, { type: 'bearer' })
+      .send({ applicantPhone: '', applicantPhoneCountry: 'CA' })
+      .expect(200);
+    const incompletePhone = await api.get(`/itse/${caseId}`).auth(owner, { type: 'bearer' }).expect(200);
+    assert.equal(incompletePhone.body.applicantPhone, '');
+    assert.equal(incompletePhone.body.applicantPhoneCountry, 'CA');
+    await api
+      .patch(`/itse/${caseId}/draft`)
+      .auth(owner, { type: 'bearer' })
+      .send({ applicantPhone: '2025550123', applicantPhoneCountry: 'US' })
+      .expect(200);
+    const internationalPhone = await api.get(`/itse/${caseId}`).auth(owner, { type: 'bearer' }).expect(200);
+    assert.equal(internationalPhone.body.applicantPhone, '+12025550123');
+    assert.equal(internationalPhone.body.applicantPhoneCountry, 'US');
+    for (const invalid of [
+      { applicantDocumentType: 'RUC' },
+      { applicantDocumentNumber: '123' },
+      { applicantPhone: 'invalid' },
+      { applicantPhone: '+12025550123', applicantPhoneCountry: 'PE' },
+      { applicantPhoneCountry: 'ZZ' },
+      { establishmentDistrict: 'Miraflores' },
+      { establishmentBusinessName: '   ' },
+      { establishmentRuc: '123' },
+      { establishmentRuc: '1234567890A' },
+    ]) {
+      const field = Object.keys(invalid)[0];
+      const rejected = await api
+        .post('/itse')
+        .auth(owner, { type: 'bearer' })
+        .send({ ...draftData, ...invalid })
+        .expect(400);
+      assert.ok(rejected.body.errors[field]);
+      await api
+        .patch(`/itse/${caseId}/draft`)
+        .auth(owner, { type: 'bearer' })
+        .send({ ...draftData, ...invalid })
+        .expect(200);
+      const failedSubmission = await api
+        .post(`/itse/${caseId}/submit`)
+        .auth(owner, { type: 'bearer' })
+        .expect(400);
+      assert.ok(failedSubmission.body.errors[field]);
+      const stored = await db.itseRequest.findUniqueOrThrow({ where: { id: caseId } });
+      assert.equal(stored.status, 'BORRADOR');
+      assert.equal(stored.startedAt, null);
+      assert.equal(stored.dueAt, null);
+    }
+    await api
+      .patch(`/itse/${caseId}/draft`)
+      .auth(owner, { type: 'bearer' })
       .send({
-        applicantName: 'Synthetic Applicant',
-        applicantDocumentType: 'DNI',
-        applicantDocumentNumber: '12345678',
-        applicantEmail: 'synthetic@example.test',
-        applicantPhone: '999111222',
+        applicantName: '  Synthetic Applicant  ',
+        applicantDocumentType: ' dni ',
+        applicantDocumentNumber: ' 00123456 ',
+        applicantEmail: '  SYNTHETIC@EXAMPLE.TEST  ',
+        applicantPhone: ' +51 (999) 111-222 ',
+        establishmentBusinessName: '  Titular editado  ',
+        establishmentRuc: '',
         establishmentAddress: 'Av. Test 123',
-        establishmentDistrict: 'Lima',
+        establishmentDistrict: 'San Miguel',
       })
       .expect(200);
     await api
@@ -132,6 +204,14 @@ test('review reasons survive HTTP reload and subsequent approval; invalid writes
       .auth(owner, { type: 'bearer' })
       .expect(200);
     assert.equal(submitted.body.status, 'PENDIENTE');
+    assert.equal(submitted.body.applicantName, 'Synthetic Applicant');
+    assert.equal(submitted.body.applicantDocumentType, 'DNI');
+    assert.equal(submitted.body.applicantDocumentNumber, '00123456');
+    assert.equal(submitted.body.applicantEmail, 'synthetic@example.test');
+    assert.equal(submitted.body.applicantPhone, '+51999111222');
+    assert.equal(submitted.body.applicantPhoneCountry, 'PE');
+    assert.equal(submitted.body.establishmentBusinessName, 'Titular editado');
+    assert.equal(submitted.body.establishmentRuc, '');
     assert.ok(submitted.body.startedAt);
     assert.ok(submitted.body.dueAt);
     await api.get('/itse').auth(admin, { type: 'bearer' }).expect(403);

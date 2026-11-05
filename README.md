@@ -29,6 +29,10 @@ npm run dev
 
 Portal: http://localhost:5173. API: http://localhost:3000.
 
+El seed crea cuatro cuentas locales: `admin@example.com`, `funcionario@example.com`, `inspector@example.com` y `administrado@example.com`, con contraseña `123456`. Repetirlo conserva las cuentas existentes. No se crean estas cuentas en producción ni en bases remotas.
+
+Para borrar los datos locales de prueba, aplicar las migraciones y cargar las cuentas y feriados, ejecutar `npm run db:reset` desde `sigitse-backend`. Este comando elimina todos los datos de la base configurada en `.env`; el arranque normal los conserva.
+
 ## Comprobaciones
 
 - Frontend: `npm run lint` y `npm run build`.

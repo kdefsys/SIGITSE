@@ -37,7 +37,6 @@ export const Dashboard: React.FC = () => {
   const [requests, setRequests] = useState<ItseRequest[]>([]);
   const [drafts, setDrafts] = useState<ItseRequest[]>([]);
   const [draftsError, setDraftsError] = useState('');
-  const [submittingDraftId, setSubmittingDraftId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
@@ -82,35 +81,6 @@ export const Dashboard: React.FC = () => {
 
   const refreshAdministradoData = async () => {
     await Promise.all([fetchRequests(), fetchDrafts()]);
-  };
-
-  const submitDraft = async (draft: ItseRequest) => {
-    if (
-      !window.confirm(
-        'Al presentar la solicitud comenzará el plazo de 9 días hábiles. ¿Deseas continuar?',
-      )
-    ) {
-      return;
-    }
-
-    setSubmittingDraftId(draft.id);
-    setDraftsError('');
-    try {
-      await api.post(`/itse/${draft.id}/submit`);
-      await refreshAdministradoData();
-      setActiveView('requests');
-    } catch (error) {
-      const message = isAxiosError<{ message?: string | string[] }>(error)
-        ? error.response?.data?.message
-        : undefined;
-      setDraftsError(
-        Array.isArray(message)
-          ? message.join('. ')
-          : (message ?? 'No se pudo presentar la solicitud.'),
-      );
-    } finally {
-      setSubmittingDraftId(null);
-    }
   };
 
   useEffect(() => {
@@ -449,13 +419,6 @@ export const Dashboard: React.FC = () => {
                           }}
                         >
                           Editar
-                        </button>
-                        <button
-                          className="btn-primary"
-                          disabled={submittingDraftId !== null}
-                          onClick={() => void submitDraft(draft)}
-                        >
-                          {submittingDraftId === draft.id ? 'Presentando...' : 'Presentar'}
                         </button>
                       </td>
                     </tr>
